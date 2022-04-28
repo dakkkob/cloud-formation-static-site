@@ -1,0 +1,13 @@
+Description: |
+  Tempalte to host static site
+    - code commit repo
+    - pipeline to publish it into S3 
+    - creates a cloudfront distribution
+
+Resources: 
+  S3BucketHosting:
+    Type: "AWS::S3::Bucket"
+
+  S3BucketCodeCommit:
+    Type: "AWS::S3::Bucket"
+    
