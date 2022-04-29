@@ -4,6 +4,10 @@ Description: |
     - pipeline to publish it into S3 
     - creates a cloudfront distribution
 
+Parameters:
+  ProjectName:
+    Type: String
+
 Resources: 
   S3BucketHosting:
     Type: "AWS::S3::Bucket"
@@ -11,3 +15,127 @@ Resources:
   S3BucketCodeCommit:
     Type: "AWS::S3::Bucket"
     
+  CodeCommitRepository:
+    Type: "AWS::CodeCommit::Repository"
+    Properties:
+      RepositoryName: !Ref ProjectName
+
+  CodeBuildProject:
+    Type: "AWS::CodeBuild::Project"
+    Properties: 
+      Name: !Ref ProjectName
+      Source:
+        BuildSpec: !Sub |
+                    version: 0.2
+                    
+                    phases:
+                      build:
+                        commands:
+                            - aws s3 rm --recursive "s3://${S3BucketHosting}/"
+        InsecureSsl: false
+        Type: "CODEPIPELINE"
+      Artifacts:
+        EncryptionDisabled: false
+        Name: !Ref CodeCommitRepository
+        Packaging: "NONE"
+        Type: "CODEPIPELINE"
+      Cache:
+        Type: "NO_CACHE"
+      Environment: 
+          ComputeType: "BUILD_GENERAL1_SMALL"
+          Image: "aws/codebuild/amazonlinux2-aarch64-standard:1.0"
+          ImagePullCredentialsType: "CODEBUILD"
+          PrivilegedMode: false
+          Type: "ARM_CONTAINER"
+      ServiceRole: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/${IAMRoleForCodeBuild}"
+      TimeoutInMinutes: 60
+      QueuedTimeoutInMinutes: 480
+      EncryptionKey: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/s3"
+      BadgeEnabled: false
+      LogsConfig: 
+          CloudWatchLogs: 
+              Status: "ENABLED"
+          S3Logs: 
+              Status: "DISABLED"
+              EncryptionDisabled: false
+      Visibility: "PRIVATE"
+
+  IAMRoleForCodeBuild:
+    Type: "AWS::IAM::Role"
+    Properties:
+        Path: "/service-role/"
+        AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"codebuild.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+        MaxSessionDuration: 3600
+        ManagedPolicyArns: 
+          - !Ref IAMManagedPolicyCodeBuild
+
+  IAMManagedPolicyCodeBuild:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+        Path: "/service-role/"
+        PolicyDocument: !Sub |
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Resource": [
+                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${S3BucketHosting}",
+                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${S3BucketHosting}:*"
+                        ],
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents"
+                        ]
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Resource": [
+                            "arn:aws:s3:::codepipeline-${AWS::Region}-*"
+                        ],
+                        "Action": [
+                            "s3:PutObject",
+                            "s3:GetObject",
+                            "s3:GetObjectVersion",
+                            "s3:GetBucketAcl",
+                            "s3:GetBucketLocation"
+                        ]
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Resource": [
+                            "arn:aws:s3:::${S3BucketCodeCommit}",
+                            "arn:aws:s3:::${S3BucketCodeCommit}/*"
+                        ],
+                        "Action": [
+                            "s3:PutObject",
+                            "s3:GetBucketAcl",
+                            "s3:GetBucketLocation"
+                        ]
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "codebuild:CreateReportGroup",
+                            "codebuild:CreateReport",
+                            "codebuild:UpdateReport",
+                            "codebuild:BatchPutTestCases",
+                            "codebuild:BatchPutCodeCoverages"
+                        ],
+                        "Resource": [
+                            "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${S3BucketHosting}-*"
+                        ]
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Resource": [
+                            "arn:aws:s3:::${S3BucketHosting}/*",
+                            "arn:aws:s3:::${S3BucketHosting}"
+                        ],
+                        "Action": [
+                            "s3:*"
+                        ]
+                    }
+                ]
+            }
