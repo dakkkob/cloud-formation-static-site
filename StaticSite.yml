@@ -73,6 +73,26 @@ Resources:
         ManagedPolicyArns: 
           - !Ref IAMManagedPolicyCodeBuild
 
+  IAMRoleForPipeLine:
+    Type: "AWS::IAM::Role"
+    Properties:
+        Path: "/service-role/"
+        RoleName: !Sub "AWSCodePipelineServiceRole-${AWS::Region}-${ProjectName}"
+        AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"codepipeline.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+        MaxSessionDuration: 3600
+        ManagedPolicyArns: 
+          - !Ref IAMManagedPolicyForPipeline      
+
+  IAMRoleForBucketRepositoryToStartPipeline:
+      Type: "AWS::IAM::Role"
+      Properties:
+          Path: "/service-role/"
+          RoleName: !Sub "cwe-role-${AWS::Region}-${S3BucketCodeCommit}"
+          AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+          MaxSessionDuration: 3600
+          ManagedPolicyArns: 
+            - !Ref IAMManagedPolicyForRepositoryBucketToStartPipeline
+
   IAMManagedPolicyCodeBuild:
     Type: "AWS::IAM::ManagedPolicy"
     Properties:
@@ -144,6 +164,207 @@ Resources:
                 ]
             }
 
+  IAMManagedPolicyForPipeline:
+      Type: "AWS::IAM::ManagedPolicy"
+      Properties:
+          ManagedPolicyName: !Sub "AWSCodePipelineServiceRole-${AWS::Region}-${ProjectName}"
+          Path: "/service-role/"
+          PolicyDocument: |
+              {
+                  "Statement": [
+                      {
+                          "Action": [
+                              "iam:PassRole"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow",
+                          "Condition": {
+                              "StringEqualsIfExists": {
+                                  "iam:PassedToService": [
+                                      "cloudformation.amazonaws.com",
+                                      "elasticbeanstalk.amazonaws.com",
+                                      "ec2.amazonaws.com",
+                                      "ecs-tasks.amazonaws.com"
+                                  ]
+                              }
+                          }
+                      },
+                      {
+                          "Action": [
+                              "codecommit:CancelUploadArchive",
+                              "codecommit:GetBranch",
+                              "codecommit:GetCommit",
+                              "codecommit:GetRepository",
+                              "codecommit:GetUploadArchiveStatus",
+                              "codecommit:UploadArchive"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "codedeploy:CreateDeployment",
+                              "codedeploy:GetApplication",
+                              "codedeploy:GetApplicationRevision",
+                              "codedeploy:GetDeployment",
+                              "codedeploy:GetDeploymentConfig",
+                              "codedeploy:RegisterApplicationRevision"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "codestar-connections:UseConnection"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "elasticbeanstalk:*",
+                              "ec2:*",
+                              "elasticloadbalancing:*",
+                              "autoscaling:*",
+                              "cloudwatch:*",
+                              "s3:*",
+                              "sns:*",
+                              "cloudformation:*",
+                              "rds:*",
+                              "sqs:*",
+                              "ecs:*"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "lambda:InvokeFunction",
+                              "lambda:ListFunctions"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "opsworks:CreateDeployment",
+                              "opsworks:DescribeApps",
+                              "opsworks:DescribeCommands",
+                              "opsworks:DescribeDeployments",
+                              "opsworks:DescribeInstances",
+                              "opsworks:DescribeStacks",
+                              "opsworks:UpdateApp",
+                              "opsworks:UpdateStack"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "cloudformation:CreateStack",
+                              "cloudformation:DeleteStack",
+                              "cloudformation:DescribeStacks",
+                              "cloudformation:UpdateStack",
+                              "cloudformation:CreateChangeSet",
+                              "cloudformation:DeleteChangeSet",
+                              "cloudformation:DescribeChangeSet",
+                              "cloudformation:ExecuteChangeSet",
+                              "cloudformation:SetStackPolicy",
+                              "cloudformation:ValidateTemplate"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "codebuild:BatchGetBuilds",
+                              "codebuild:StartBuild",
+                              "codebuild:BatchGetBuildBatches",
+                              "codebuild:StartBuildBatch"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "devicefarm:ListProjects",
+                              "devicefarm:ListDevicePools",
+                              "devicefarm:GetRun",
+                              "devicefarm:GetUpload",
+                              "devicefarm:CreateUpload",
+                              "devicefarm:ScheduleRun"
+                          ],
+                          "Resource": "*"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "servicecatalog:ListProvisioningArtifacts",
+                              "servicecatalog:CreateProvisioningArtifact",
+                              "servicecatalog:DescribeProvisioningArtifact",
+                              "servicecatalog:DeleteProvisioningArtifact",
+                              "servicecatalog:UpdateProduct"
+                          ],
+                          "Resource": "*"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "cloudformation:ValidateTemplate"
+                          ],
+                          "Resource": "*"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "ecr:DescribeImages"
+                          ],
+                          "Resource": "*"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "states:DescribeExecution",
+                              "states:DescribeStateMachine",
+                              "states:StartExecution"
+                          ],
+                          "Resource": "*"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "appconfig:StartDeployment",
+                              "appconfig:StopDeployment",
+                              "appconfig:GetDeployment"
+                          ],
+                          "Resource": "*"
+                      }
+                  ],
+                  "Version": "2012-10-17"
+              }
+
+  IAMManagedPolicyForRepositoryBucketToStartPipeline:
+      Type: "AWS::IAM::ManagedPolicy"
+      Properties:
+          ManagedPolicyName: !Sub "start-pipeline-execution-${AWS::Region}-${ProjectName}"
+          Path: "/service-role/"
+          PolicyDocument: !Sub |
+              {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "codepipeline:StartPipelineExecution"
+                          ],
+                          "Resource": [
+                              "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:Pipeline${ProjectName}"
+                          ]
+                      }
+                  ]
+              }
+
   CloudFrontDistribution:
       Type: "AWS::CloudFront::Distribution"
       Properties:
@@ -189,6 +410,109 @@ Resources:
           CloudFrontOriginAccessIdentityConfig: 
               Comment: !Sub "access-identity-${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
 
+  CodePipeline:
+      Type: "AWS::CodePipeline::Pipeline"
+      Properties:
+          Name: !Sub "Pipeline${ProjectName}"
+          RoleArn: !GetAtt IAMRoleForPipeLine.Arn
+          ArtifactStore: 
+              Location: !Ref S3BucketCodeCommit
+              Type: "S3"
+          Stages: 
+            - 
+              Name: "Source"
+              Actions: 
+                - 
+                  Name: "Source"
+                  ActionTypeId: 
+                      Category: "Source"
+                      Owner: "AWS"
+                      Provider: "CodeCommit"
+                      Version: "1"
+                  Configuration: 
+                      BranchName: "master"
+                      OutputArtifactFormat: "CODE_ZIP"
+                      PollForSourceChanges: "false"
+                      RepositoryName: !GetAtt CodeCommitRepository.Name
+                  OutputArtifacts: 
+                    - 
+                      Name: "SourceArtifact"
+                  Region: !Ref AWS::Region
+                  Namespace: "SourceVariables"
+                  RunOrder: 1
+            - 
+              Name: "Build"
+              Actions: 
+                - 
+                  Name: !Sub "Build${ProjectName}"
+                  ActionTypeId: 
+                      Category: "Build"
+                      Owner: "AWS"
+                      Provider: "CodeBuild"
+                      Version: "1"
+                  Configuration: 
+                      ProjectName: !Ref CodeBuildProject
+                  InputArtifacts: 
+                    - 
+                      Name: "SourceArtifact"
+                  OutputArtifacts: 
+                    - 
+                      Name: "BuildArtifact"
+                  Region: !Ref AWS::Region
+                  Namespace: "BuildVariables"
+                  RunOrder: 1
+            - 
+              Name: "Deploy"
+              Actions: 
+                - 
+                  Name: "Deploy"
+                  ActionTypeId: 
+                      Category: "Deploy"
+                      Owner: "AWS"
+                      Provider: "S3"
+                      Version: "1"
+                  Configuration: 
+                      BucketName: !Ref S3BucketHosting                      
+                      Extract: "true"
+                  InputArtifacts: 
+                    - 
+                      Name: "SourceArtifact"
+                  Region: !Ref AWS::Region
+                  Namespace: "DeployVariables"
+                  RunOrder: 1
+            - 
+              Name: "InvalidateCloudFrontByLambda"
+              Actions: 
+                - 
+                  Name: "InvalidateCloudFrontByLambda"
+                  ActionTypeId: 
+                      Category: "Invoke"
+                      Owner: "AWS"
+                      Provider: "Lambda"
+                      Version: "1"
+                  Configuration: 
+                      FunctionName: InvalidateCloudFrontDistribution
+                      UserParameters: !Sub "{\"distributionId\": \"${CloudFrontDistribution.Id}\", \"objectPaths\": [\"/*\"]}"
+                  InputArtifacts: 
+                    - 
+                      Name: "SourceArtifact"
+                  Region: !Ref AWS::Region
+                  RunOrder: 1
+
+  EventsRule:
+      Type: "AWS::Events::Rule"
+      Properties:
+          Name: !Sub "codepipeline-${ProjectName}-master-rule"
+          Description: "Amazon CloudWatch Events rule to automatically start your pipeline when a change occurs in the AWS CodeCommit source repository and branch. Deleting this may prevent changes from being detected in that pipeline. Read more: http://docs.aws.amazon.com/codepipeline/latest/userguide/pipelines-about-starting.html"
+          EventPattern: !Sub "{\"source\":[\"aws.codecommit\"],\"detail-type\":[\"CodeCommit Repository State Change\"],\"resources\":[\"arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepository}\"],\"detail\":{\"event\":[\"referenceCreated\",\"referenceUpdated\"],\"referenceType\":[\"branch\"],\"referenceName\":[\"master\"]}}"
+          State: "ENABLED"
+          Targets: 
+            - 
+              Arn: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:Pipeline${ProjectName}"
+              Id: !Sub "codepipeline-event-${ProjectName}"
+              RoleArn: !GetAtt IAMRoleForBucketRepositoryToStartPipeline.Arn
+          EventBusName: "default"
+
 Outputs:
   WebPageURL:
     Description: "URL of the page"
@@ -198,8 +522,5 @@ Outputs:
     Value: !GetAtt CodeCommitRepository.CloneUrlHttp
 
 # TODO:
-# Pipeline + role
-# lambda role? 
-# trigger for pipeline
-# Unify S3 for CodeCommit + clean it up - nested stack for this and lambda?
 # Condition + If to create cloudfront with domain and certificate
+# What was left outside?
