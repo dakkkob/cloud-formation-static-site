@@ -11,6 +11,26 @@ Parameters:
     Type: String
     ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-4}"
     Description: "For example index.html or index.php"
+    Default: "index.html"
+  DomainName:
+    Type: String
+    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-3}"
+    Description: "Domain name/CNAME which will point to cloudfront distribution. www will be added automatically. Providing certificate ID is then mandatory!"    
+  CertificateID:
+    Type: String
+    Description: "ID of certificate from AWS certificate manager which has been issued to your domain. Must be in us-east1 region!"
+
+Conditions:
+  DomainExists:
+    Fn::Not:
+      - Fn::Equals:
+          - ''
+          - Ref: DomainName
+  CertificateExists:
+    Fn::Not:
+      - Fn::Equals:
+          - ''
+          - Ref: CertificateID
 
 Resources: 
   S3BucketHosting:
@@ -18,7 +38,21 @@ Resources:
 
   S3BucketCodeCommit:
     Type: "AWS::S3::Bucket"
-    
+
+  S3BucketHostingPolicyForCloudFront:
+      Type: "AWS::S3::BucketPolicy"
+      Properties:
+          Bucket: !Ref S3BucketHosting
+          PolicyDocument: 
+              Version: "2012-10-17"              
+              Statement: 
+                - 
+                  Effect: "Allow"
+                  Principal: 
+                      AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontCloudFrontOriginAccessIdentity}"
+                  Action: "s3:GetObject"
+                  Resource: !Sub "arn:aws:s3:::${S3BucketHosting}/*"
+
   CodeCommitRepository:
     Type: "AWS::CodeCommit::Repository"
     Properties:
@@ -104,28 +138,15 @@ Resources:
                     {
                         "Effect": "Allow",
                         "Resource": [
-                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${S3BucketHosting}",
-                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${S3BucketHosting}:*"
+                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}",
+                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}:*"
                         ],
                         "Action": [
                             "logs:CreateLogGroup",
                             "logs:CreateLogStream",
                             "logs:PutLogEvents"
                         ]
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Resource": [
-                            "arn:aws:s3:::codepipeline-${AWS::Region}-*"
-                        ],
-                        "Action": [
-                            "s3:PutObject",
-                            "s3:GetObject",
-                            "s3:GetObjectVersion",
-                            "s3:GetBucketAcl",
-                            "s3:GetBucketLocation"
-                        ]
-                    },
+                    },                   
                     {
                         "Effect": "Allow",
                         "Resource": [
@@ -134,6 +155,8 @@ Resources:
                         ],
                         "Action": [
                             "s3:PutObject",
+                            "s3:GetObject",
+                            "s3:GetObjectVersion",
                             "s3:GetBucketAcl",
                             "s3:GetBucketLocation"
                         ]
@@ -148,7 +171,7 @@ Resources:
                             "codebuild:BatchPutCodeCoverages"
                         ],
                         "Resource": [
-                            "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${S3BucketHosting}-*"
+                            "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${ProjectName}-*"
                         ]
                     },
                     {
@@ -365,10 +388,24 @@ Resources:
                   ]
               }
 
+  LogsLogGroup:
+      Type: "AWS::Logs::LogGroup"
+      Properties:
+          LogGroupName: !Sub "/aws/codebuild/${ProjectName}"
+
   CloudFrontDistribution:
       Type: "AWS::CloudFront::Distribution"
       Properties:
-          DistributionConfig: 
+          DistributionConfig:               
+              Aliases:
+                - Fn::If:
+                  - DomainExists
+                  - !Ref DomainName
+                  - !Ref "AWS::NoValue"
+                - Fn::If:
+                  - DomainExists
+                  - !Sub "www.${DomainName}"
+                  - !Ref "AWS::NoValue"
               Origins: 
                 - 
                   ConnectionAttempts: 3
@@ -395,8 +432,14 @@ Resources:
               Comment: ""
               PriceClass: "PriceClass_All"
               Enabled: true
-              ViewerCertificate:                   
-                  CloudFrontDefaultCertificate: true
+              ViewerCertificate:
+                  Fn::If:
+                    - CertificateExists
+                    - 
+                      AcmCertificateArn: !Sub "arn:aws:acm:us-east-1:${AWS::AccountId}:certificate/${CertificateID}"
+                      MinimumProtocolVersion: "TLSv1.2_2021"
+                      SslSupportMethod: "sni-only"
+                    - CloudFrontDefaultCertificate: true
               Restrictions: 
                   GeoRestriction: 
                       RestrictionType: "none"
@@ -522,5 +565,5 @@ Outputs:
     Value: !GetAtt CodeCommitRepository.CloneUrlHttp
 
 # TODO:
-# Condition + If to create cloudfront with domain and certificate
 # What was left outside?
+# Cleanup Buckets on Delete

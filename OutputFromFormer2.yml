@@ -3,38 +3,6 @@ Metadata:
     Generator: "former2"
 Description: ""
 Resources:
-    IAMUser:
-        Type: "AWS::IAM::User"
-        Properties:
-            Path: "/"
-            UserName: !Ref S3Bucket2
-            Groups: 
-              - !Ref IAMGroup2
-
-    IAMUser2:
-        Type: "AWS::IAM::User"
-        Properties:
-            Path: "/"
-            UserName: "Synology"
-            Groups: 
-              - !Ref IAMGroup
-
-    IAMGroup:
-        Type: "AWS::IAM::Group"
-        Properties:
-            Path: "/"
-            GroupName: "GlacierFullAccess"
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/AmazonGlacierFullAccess"
-
-    IAMGroup2:
-        Type: "AWS::IAM::Group"
-        Properties:
-            Path: "/"
-            GroupName: "Admin"
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/AdministratorAccess"
-              - !Ref IAMManagedPolicy2
 
     IAMRole:
         Type: "AWS::IAM::Role"
@@ -85,17 +53,6 @@ Resources:
             ManagedPolicyArns: 
               - !Sub "arn:aws:iam::aws:policy/${IAMGroup2}istratorAccess"
 
-    IAMRole5:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/"
-            RoleName: "aws-elasticbeanstalk-service-role"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"elasticbeanstalk.amazonaws.com\"},\"Action\":\"sts:AssumeRole\",\"Condition\":{\"StringEquals\":{\"sts:ExternalId\":\"elasticbeanstalk\"}}}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth"
-              - "arn:aws:iam::aws:policy/AWSElasticBeanstalkManagedUpdatesCustomerRolePolicy"
-
     IAMRole6:
         Type: "AWS::IAM::Role"
         Properties:
@@ -106,19 +63,6 @@ Resources:
             ManagedPolicyArns: 
               - !Ref IAMManagedPolicy3
             Description: "The service role that will be used by AWS Amplify to read CodeCommit repositories."
-
-    IAMRole7:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/"
-            RoleName: "aws-elasticbeanstalk-ec2-role"
-            AssumeRolePolicyDocument: "{\"Version\":\"2008-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
-              - "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
-              - "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
-              - "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
 
     IAMRole8:
         Type: "AWS::IAM::Role"
@@ -140,16 +84,6 @@ Resources:
             ManagedPolicyArns: 
               - !Ref IAMManagedPolicy5
 
-    IAMRole10:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: "KrakonosPipelineRole"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"codepipeline.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - !Ref IAMManagedPolicy8
-
     IAMRole11:
         Type: "AWS::IAM::Role"
         Properties:
@@ -160,15 +94,6 @@ Resources:
             ManagedPolicyArns: 
               - !Ref IAMManagedPolicy6
 
-    IAMRole12:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: "cwe-role-eu-west-1-KrakonosPipeline"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - !Ref IAMManagedPolicy
 
     IAMRole13:
         Type: "AWS::IAM::Role"
@@ -179,16 +104,6 @@ Resources:
             MaxSessionDuration: 3600
             ManagedPolicyArns: 
               - !Ref IAMManagedPolicy4
-
-    IAMRole14:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/"
-            RoleName: "rds-monitoring-role"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"monitoring.rds.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 
     IAMServiceLinkedRole:
         Type: "AWS::IAM::ServiceLinkedRole"
@@ -224,44 +139,6 @@ Resources:
             AWSServiceName: "globalaccelerator.amazonaws.com"
             Description: "Allows Global Accelerator to call AWS services on customer's behalf"
 
-    IAMManagedPolicy:
-        Type: "AWS::IAM::ManagedPolicy"
-        Properties:
-            ManagedPolicyName: "start-pipeline-execution-eu-west-1-KrakonosPipeline"
-            Path: "/service-role/"
-            PolicyDocument: !Sub |
-                {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                                "codepipeline:StartPipelineExecution"
-                            ],
-                            "Resource": [
-                                "arn:aws:codepipeline:eu-west-1:${AWS::AccountId}:KrakonosPipeline"
-                            ]
-                        }
-                    ]
-                }
-
-    IAMManagedPolicy2:
-        Type: "AWS::IAM::ManagedPolicy"
-        Properties:
-            ManagedPolicyName: "BillingFullAccess"
-            Path: "/"
-            PolicyDocument: |
-                {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Sid": "VisualEditor0",
-                            "Effect": "Allow",
-                            "Action": "aws-portal:*",
-                            "Resource": "*"
-                        }
-                    ]
-                }
 
     IAMManagedPolicy3:
         Type: "AWS::IAM::ManagedPolicy"
@@ -605,185 +482,6 @@ Resources:
                     "Version": "2012-10-17"
                 }
 
-    IAMManagedPolicy8:
-        Type: "AWS::IAM::ManagedPolicy"
-        Properties:
-            ManagedPolicyName: "AWSCodePipelineServiceRole-eu-west-1-KrakonosPipeline"
-            Path: "/service-role/"
-            PolicyDocument: |
-                {
-                    "Statement": [
-                        {
-                            "Action": [
-                                "iam:PassRole"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow",
-                            "Condition": {
-                                "StringEqualsIfExists": {
-                                    "iam:PassedToService": [
-                                        "cloudformation.amazonaws.com",
-                                        "elasticbeanstalk.amazonaws.com",
-                                        "ec2.amazonaws.com",
-                                        "ecs-tasks.amazonaws.com"
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "Action": [
-                                "codecommit:CancelUploadArchive",
-                                "codecommit:GetBranch",
-                                "codecommit:GetCommit",
-                                "codecommit:GetRepository",
-                                "codecommit:GetUploadArchiveStatus",
-                                "codecommit:UploadArchive"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "codedeploy:CreateDeployment",
-                                "codedeploy:GetApplication",
-                                "codedeploy:GetApplicationRevision",
-                                "codedeploy:GetDeployment",
-                                "codedeploy:GetDeploymentConfig",
-                                "codedeploy:RegisterApplicationRevision"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "codestar-connections:UseConnection"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "elasticbeanstalk:*",
-                                "ec2:*",
-                                "elasticloadbalancing:*",
-                                "autoscaling:*",
-                                "cloudwatch:*",
-                                "s3:*",
-                                "sns:*",
-                                "cloudformation:*",
-                                "rds:*",
-                                "sqs:*",
-                                "ecs:*"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "lambda:InvokeFunction",
-                                "lambda:ListFunctions"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "opsworks:CreateDeployment",
-                                "opsworks:DescribeApps",
-                                "opsworks:DescribeCommands",
-                                "opsworks:DescribeDeployments",
-                                "opsworks:DescribeInstances",
-                                "opsworks:DescribeStacks",
-                                "opsworks:UpdateApp",
-                                "opsworks:UpdateStack"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "cloudformation:CreateStack",
-                                "cloudformation:DeleteStack",
-                                "cloudformation:DescribeStacks",
-                                "cloudformation:UpdateStack",
-                                "cloudformation:CreateChangeSet",
-                                "cloudformation:DeleteChangeSet",
-                                "cloudformation:DescribeChangeSet",
-                                "cloudformation:ExecuteChangeSet",
-                                "cloudformation:SetStackPolicy",
-                                "cloudformation:ValidateTemplate"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "codebuild:BatchGetBuilds",
-                                "codebuild:StartBuild",
-                                "codebuild:BatchGetBuildBatches",
-                                "codebuild:StartBuildBatch"
-                            ],
-                            "Resource": "*",
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                                "devicefarm:ListProjects",
-                                "devicefarm:ListDevicePools",
-                                "devicefarm:GetRun",
-                                "devicefarm:GetUpload",
-                                "devicefarm:CreateUpload",
-                                "devicefarm:ScheduleRun"
-                            ],
-                            "Resource": "*"
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                                "servicecatalog:ListProvisioningArtifacts",
-                                "servicecatalog:CreateProvisioningArtifact",
-                                "servicecatalog:DescribeProvisioningArtifact",
-                                "servicecatalog:DeleteProvisioningArtifact",
-                                "servicecatalog:UpdateProduct"
-                            ],
-                            "Resource": "*"
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                                "cloudformation:ValidateTemplate"
-                            ],
-                            "Resource": "*"
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                                "ecr:DescribeImages"
-                            ],
-                            "Resource": "*"
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                                "states:DescribeExecution",
-                                "states:DescribeStateMachine",
-                                "states:StartExecution"
-                            ],
-                            "Resource": "*"
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                                "appconfig:StartDeployment",
-                                "appconfig:StopDeployment",
-                                "appconfig:GetDeployment"
-                            ],
-                            "Resource": "*"
-                        }
-                    ],
-                    "Version": "2012-10-17"
-                }
 
     IAMPolicy:
         Type: "AWS::IAM::Policy"
@@ -836,26 +534,6 @@ Resources:
         Properties:
             Status: "Active"
             UserName: !Ref S3Bucket2
-
-    IAMAccessKey3:
-        Type: "AWS::IAM::AccessKey"
-        Properties:
-            Status: "Active"
-            UserName: "Synology"
-
-    IAMVirtualMFADevice:
-        Type: "AWS::IAM::VirtualMFADevice"
-        Properties:
-            SerialNumber: !Sub "arn:aws:iam::${AWS::AccountId}:mfa/root-account-mfa-device"
-            Users: 
-              - !Sub "arn:aws:iam::${AWS::AccountId}:root"
-
-    IAMVirtualMFADevice2:
-        Type: "AWS::IAM::VirtualMFADevice"
-        Properties:
-            SerialNumber: !Sub "arn:aws:iam::${AWS::AccountId}:mfa/${S3Bucket2}"
-            Users: 
-              - !Sub "arn:aws:iam::${AWS::AccountId}:user/${S3Bucket2}"
 
     EC2DHCPOptions:
         Type: "AWS::EC2::DHCPOptions"
@@ -1166,33 +844,6 @@ Resources:
                     Status: "DISABLED"
                     EncryptionDisabled: false
             Visibility: "PRIVATE"
-
-    BudgetsBudget:
-        Type: "AWS::Budgets::Budget"
-        Properties:
-            Budget: 
-                BudgetLimit: 
-                    Amount: "5.0"
-                    Unit: "USD"
-                TimePeriod: 
-                    Start: "2018-12-31T22:00:00.000Z"
-                    End: "2087-06-15T00:00:00.000Z"
-                TimeUnit: "MONTHLY"
-                CostFilters: {}
-                BudgetName: "Monthly Budget"
-                CostTypes: 
-                    IncludeTax: true
-                    IncludeSubscription: true
-                    UseBlended: false
-                    IncludeRefund: true
-                    IncludeCredit: true
-                    IncludeUpfront: true
-                    IncludeRecurring: true
-                    IncludeOtherSubscription: true
-                    IncludeSupport: true
-                    IncludeDiscount: true
-                    UseAmortized: false
-                BudgetType: "COST"
 
     CodePipelinePipeline:
         Type: "AWS::CodePipeline::Pipeline"
