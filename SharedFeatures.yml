@@ -1,0 +1,234 @@
+Description: |
+  Tempalte to deploy shared features for static sites stacks (StaticSite.yml)
+    - Lambda for CloudFront distribution invalidation
+    - Lambda for S3 bucket cleanup
+
+Resources:
+  LambdaFunctionInvalidateCF:
+      Type: "AWS::Lambda::Function"
+      Properties:
+          FunctionName: "InvalidateCloudFrontDistribution"
+          Handler: "index.lambda_handler"
+          Architectures: 
+            - "x86_64"
+          Code: 
+              ZipFile: |
+                import json
+                import boto3
+
+                code_pipeline = boto3.client("codepipeline")
+                cloud_front = boto3.client("cloudfront")
+
+                def lambda_handler(event, context):
+                    job_id = event["CodePipeline.job"]["id"]
+                    try:
+                        user_params = json.loads(
+                            event["CodePipeline.job"]
+                                ["data"]
+                                ["actionConfiguration"]
+                                ["configuration"]
+                                ["UserParameters"]
+                        )
+                        cloud_front.create_invalidation(
+                            DistributionId=user_params["distributionId"],
+                            InvalidationBatch={
+                                "Paths": {
+                                    "Quantity": len(user_params["objectPaths"]),
+                                    "Items": user_params["objectPaths"],
+                                },
+                                "CallerReference": event["CodePipeline.job"]["id"],
+                            },
+                        )
+                    except Exception as e:
+                        code_pipeline.put_job_failure_result(
+                            jobId=job_id,
+                            failureDetails={
+                                "type": "JobFailed",
+                                "message": str(e),
+                            },
+                        )
+                    else:
+                        code_pipeline.put_job_success_result(
+                            jobId=job_id,
+                        )
+          MemorySize: 128
+          Role: !GetAtt IAMRoleForLambdaCF.Arn
+          Runtime: "python3.8"
+          Timeout: 3
+          TracingConfig: 
+              Mode: "PassThrough"
+          EphemeralStorage: 
+              Size: 512
+
+  IAMRoleForLambdaCF:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/service-role/"
+      ManagedPolicyArns: 
+              - !Ref IAMManagedPolicyForLambdaCFRole
+
+  IAMManagedPolicyForLambdaCFRole:
+      Type: "AWS::IAM::ManagedPolicy"
+      Properties:
+          Path: "/service-role/"
+          PolicyDocument: !Sub |
+              {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      {
+                          "Effect": "Allow",
+                          "Action": "logs:CreateLogGroup",
+                          "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "logs:CreateLogStream",
+                              "logs:PutLogEvents"
+                          ],
+                          "Resource": [
+                              "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/InvalidateCloudFrontDistribution:*"
+                          ]
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "codepipeline:PutJobFailureResult",
+                              "codepipeline:PutJobSuccessResult",
+                              "cloudfront:CreateInvalidation"
+                          ],
+                          "Resource": "*"
+                      }
+                  ]
+              }          
+
+  LogsLogGroupInvalidateCloudFrontDistribution:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+        LogGroupName: "/aws/lambda/InvalidateCloudFrontDistribution"                  
+
+  LambdaFunctionPurgeS3:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "PurgeS3"
+      Code: 
+        ZipFile: 
+          !Sub |
+            import json, boto3, logging
+            import cfnresponse
+            logger = logging.getLogger()
+            logger.setLevel(logging.INFO)
+
+            def lambda_handler(event, context):
+                logger.info("event: {}".format(event))
+                try:
+                    bucket = event['ResourceProperties']['BucketName']
+                    logger.info("bucket: {}, event['RequestType']: {}".format(bucket,event['RequestType']))
+                    if event['RequestType'] == 'Delete':
+                        s3 = boto3.resource('s3')
+                        bucket = s3.Bucket(bucket)
+                        for obj in bucket.objects.filter():
+                            logger.info("delete obj: {}".format(obj))
+                            s3.Object(bucket.name, obj.key).delete()
+
+                    sendResponseCfn(event, context, cfnresponse.SUCCESS)
+                except Exception as e:
+                    logger.info("Exception: {}".format(e))
+                    sendResponseCfn(event, context, cfnresponse.FAILED)
+
+            def sendResponseCfn(event, context, responseStatus):
+                responseData = {}
+                responseData['Data'] = {}
+                cfnresponse.send(event, context, responseStatus, responseData, "CustomResourcePhysicalID")            
+
+      Handler: "index.lambda_handler"
+      Runtime: python3.7
+      MemorySize: 128
+      Timeout: 60
+      Role: !GetAtt IAMRoleForLambdaPurgeS3.Arn    
+
+  IAMRoleForLambdaPurgeS3:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/service-role/"
+      ManagedPolicyArns: 
+              - !Ref IAMManagedPolicyForLambdaPurgeS3
+
+  IAMManagedPolicyForLambdaPurgeS3:
+      Type: "AWS::IAM::ManagedPolicy"
+      Properties:
+          Path: "/service-role/"
+          PolicyDocument: !Sub |
+              {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      {
+                          "Effect": "Allow",
+                          "Action": "logs:CreateLogGroup",
+                          "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "logs:CreateLogStream",
+                              "logs:PutLogEvents"
+                          ],
+                          "Resource": [
+                              "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PurgeS3:*"
+                          ]
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Resource": [
+                              "arn:aws:s3:::*"                              
+                          ],
+                          "Action": [
+                              "s3:*"
+                          ]
+                      }                  
+                  ]
+              }          
+
+  LogsLogGroupPurgeS3:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+        LogGroupName: "/aws/lambda/PurgeS3"           
+
+Outputs:
+  ArnOfLambdaFunctionInvalidateCF:
+    Value: !GetAtt LambdaFunctionInvalidateCF.Arn
+    Export:
+      Name: ArnOfLambdaFunctionInvalidateCF
+
+  NameOfLambdaFunctionInvalidateCF:
+    Value: !Ref LambdaFunctionInvalidateCF
+    Export:
+      Name: NameOfLambdaFunctionInvalidateCF
+
+  ArnOfLambdaFunctionPurgeS3:
+    Value: !GetAtt LambdaFunctionPurgeS3.Arn
+    Export:
+      Name: ArnOfLambdaFunctionPurgeS3
+
+  NameOfLambdaFunctionPurgeS3:
+    Value: !Ref LambdaFunctionPurgeS3
+    Export:
+      Name: NameOfLambdaFunctionPurgeS3
