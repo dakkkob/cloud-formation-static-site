@@ -19,6 +19,9 @@ Parameters:
   CertificateID:
     Type: String
     Description: "ID of certificate from AWS certificate manager which has been issued to your domain. Must be in us-east1 region!"
+  RepositoryBranchName:
+    Type: String
+    Default: "master"  
 
 Conditions:
   DomainExists:
@@ -34,7 +37,7 @@ Conditions:
 
 Resources: 
   S3BucketHosting:
-    Type: "AWS::S3::Bucket"
+    Type: "AWS::S3::Bucket"    
 
   S3BucketCodeCommit:
     Type: "AWS::S3::Bucket"
@@ -52,6 +55,18 @@ Resources:
                       AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontCloudFrontOriginAccessIdentity}"
                   Action: "s3:GetObject"
                   Resource: !Sub "arn:aws:s3:::${S3BucketHosting}/*"
+
+  CleanupBucketHostingOnDelete:
+    Type: Custom::cleanupbucket
+    Properties:
+      ServiceToken: !ImportValue ArnOfLambdaFunctionPurgeS3
+      BucketName: !Ref S3BucketHosting
+
+  CleanupBucketCodeCommitOnDelete:
+    Type: Custom::cleanupbucket
+    Properties:
+      ServiceToken: !ImportValue ArnOfLambdaFunctionPurgeS3
+      BucketName: !Ref S3BucketCodeCommit
 
   CodeCommitRepository:
     Type: "AWS::CodeCommit::Repository"
@@ -458,6 +473,7 @@ Resources:
       Properties:
           Name: !Sub "Pipeline${ProjectName}"
           RoleArn: !GetAtt IAMRoleForPipeLine.Arn
+          RestartExecutionOnUpdate: No
           ArtifactStore: 
               Location: !Ref S3BucketCodeCommit
               Type: "S3"
@@ -473,7 +489,7 @@ Resources:
                       Provider: "CodeCommit"
                       Version: "1"
                   Configuration: 
-                      BranchName: "master"
+                      BranchName: !Ref RepositoryBranchName
                       OutputArtifactFormat: "CODE_ZIP"
                       PollForSourceChanges: "false"
                       RepositoryName: !GetAtt CodeCommitRepository.Name
@@ -534,7 +550,7 @@ Resources:
                       Provider: "Lambda"
                       Version: "1"
                   Configuration: 
-                      FunctionName: InvalidateCloudFrontDistribution
+                      FunctionName: !ImportValue NameOfLambdaFunctionInvalidateCF
                       UserParameters: !Sub "{\"distributionId\": \"${CloudFrontDistribution.Id}\", \"objectPaths\": [\"/*\"]}"
                   InputArtifacts: 
                     - 
@@ -545,9 +561,9 @@ Resources:
   EventsRule:
       Type: "AWS::Events::Rule"
       Properties:
-          Name: !Sub "codepipeline-${ProjectName}-master-rule"
+          Name: !Sub "codepipeline-${ProjectName}-${RepositoryBranchName}-rule"
           Description: "Amazon CloudWatch Events rule to automatically start your pipeline when a change occurs in the AWS CodeCommit source repository and branch. Deleting this may prevent changes from being detected in that pipeline. Read more: http://docs.aws.amazon.com/codepipeline/latest/userguide/pipelines-about-starting.html"
-          EventPattern: !Sub "{\"source\":[\"aws.codecommit\"],\"detail-type\":[\"CodeCommit Repository State Change\"],\"resources\":[\"arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepository}\"],\"detail\":{\"event\":[\"referenceCreated\",\"referenceUpdated\"],\"referenceType\":[\"branch\"],\"referenceName\":[\"master\"]}}"
+          EventPattern: !Sub "{\"source\":[\"aws.codecommit\"],\"detail-type\":[\"CodeCommit Repository State Change\"],\"resources\":[\"arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepository}\"],\"detail\":{\"event\":[\"referenceCreated\",\"referenceUpdated\"],\"referenceType\":[\"branch\"],\"referenceName\":[\"${RepositoryBranchName}\"]}}"
           State: "ENABLED"
           Targets: 
             - 
@@ -565,5 +581,9 @@ Outputs:
     Value: !GetAtt CodeCommitRepository.CloneUrlHttp
 
 # TODO:
-# What was left outside?
+# Cleanup dakob resources outside this
 # Cleanup Buckets on Delete
+# cleanup of codepipeline buckets (might not be needed if moved to github?)
+# pipeline fails immediately (missing master) (might not be needed if moved to github?)
+# website monitoring
+# integrate with service catalogue
