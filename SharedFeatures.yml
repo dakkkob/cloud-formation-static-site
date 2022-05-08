@@ -156,6 +156,59 @@ Resources:
       Timeout: 60
       Role: !GetAtt IAMRoleForLambdaPurgeS3.Arn    
 
+  LambdaFunctionPurgeS3ForBuild:
+      Type: "AWS::Lambda::Function"
+      Properties:
+          FunctionName: "PurgeS3ForBuild"
+          Handler: "index.lambda_handler"
+          Architectures: 
+            - "x86_64"
+          Code: 
+              ZipFile: |
+                import json
+                import boto3
+                import logging
+
+                logger = logging.getLogger()
+                logger.setLevel(logging.INFO)
+
+                code_pipeline = boto3.client("codepipeline")
+
+                def lambda_handler(event, context):
+                    logger.info("event: {}".format(event))
+                    job_id = event["CodePipeline.job"]["id"]
+                    try:
+                        user_params = json.loads(
+                            event["CodePipeline.job"]
+                                ["data"]
+                                ["actionConfiguration"]
+                                ["configuration"]
+                                ["UserParameters"]
+                        )
+                        bucket = user_params["S3Bucket"]
+                        logger.info("bucket: {}, event['RequestType']: {}".format(bucket,event['RequestType']))
+                        s3 = boto3.resource('s3')
+                        bucket = s3.Bucket(bucket)
+                        for obj in bucket.objects.filter():
+                            logger.info("delete obj: {}".format(obj))
+                            s3.Object(bucket.name, obj.key).delete()
+                    except Exception as e:
+                        code_pipeline.put_job_failure_result(
+                            jobId=job_id,
+                            failureDetails={
+                                "type": "JobFailed",
+                                "message": str(e),
+                            },
+                        )
+                    else:
+                        code_pipeline.put_job_success_result(
+                            jobId=job_id,
+                        )
+          MemorySize: 128
+          Role: !GetAtt IAMRoleForLambdaPurgeS3.Arn
+          Runtime: python3.7
+          Timeout: 60    
+
   IAMRoleForLambdaPurgeS3:
     Type: AWS::IAM::Role
     Properties:
@@ -192,7 +245,8 @@ Resources:
                               "logs:PutLogEvents"
                           ],
                           "Resource": [
-                              "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PurgeS3:*"
+                              "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PurgeS3:*",
+                              "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PurgeS3ForBuild:*"
                           ]
                       },
                       {
@@ -210,7 +264,12 @@ Resources:
   LogsLogGroupPurgeS3:
     Type: "AWS::Logs::LogGroup"
     Properties:
-        LogGroupName: "/aws/lambda/PurgeS3"           
+        LogGroupName: "/aws/lambda/PurgeS3"        
+
+  LogsLogGroupPurgeS3ForBuild:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+        LogGroupName: "/aws/lambda/PurgeS3ForBuild"   
 
 Outputs:
   ArnOfLambdaFunctionInvalidateCF:
@@ -232,3 +291,13 @@ Outputs:
     Value: !Ref LambdaFunctionPurgeS3
     Export:
       Name: NameOfLambdaFunctionPurgeS3
+
+  ArnOfLambdaFunctionPurgeS3ForBuild:
+    Value: !GetAtt LambdaFunctionPurgeS3ForBuild.Arn
+    Export:
+      Name: ArnOfLambdaFunctionPurgeS3ForBuild
+
+  NameOfLambdaFunctionPurgeS3ForBuild:
+    Value: !Ref LambdaFunctionPurgeS3ForBuild
+    Export:
+      Name: NameOfLambdaFunctionPurgeS3ForBuild

@@ -539,8 +539,7 @@ Outputs:
     Value: !GetAtt CloudFrontDistribution.DomainName
 
 # TODO:
-# cleanup of codepipeline buckets (might not be needed if moved to github?)
 # website monitoring
 # integrate with service catalogue
 # improve codebuild
-# last review & cleanup
+# last review & cleanups
