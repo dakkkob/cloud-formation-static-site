@@ -581,9 +581,9 @@ Outputs:
     Value: !GetAtt CodeCommitRepository.CloneUrlHttp
 
 # TODO:
-# Cleanup dakob resources outside this
-# Cleanup Buckets on Delete
 # cleanup of codepipeline buckets (might not be needed if moved to github?)
 # pipeline fails immediately (missing master) (might not be needed if moved to github?)
 # website monitoring
 # integrate with service catalogue
+# improve codebuild
+# cleanup
