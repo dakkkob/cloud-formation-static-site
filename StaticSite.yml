@@ -1,8 +1,11 @@
 Description: |
   Tempalte to host static site
-    - code commit repo
-    - pipeline to publish it into S3 
-    - creates a cloudfront distribution
+    - connects to an existing GitHub repository
+    - pipeline deploys the repository content into a S3 bucket 
+    - cloudfront then creates a distribution from the S3 content
+    Prerequisites:
+      - Cerfiricate in certificate manager (eu-east-1 region) if required
+      - GitHub connection in CodeCommit > Settings > Connections
 
 Parameters:
   ProjectName:
@@ -19,9 +22,16 @@ Parameters:
   CertificateID:
     Type: String
     Description: "ID of certificate from AWS certificate manager which has been issued to your domain. Must be in us-east1 region!"
+  RepositoryName:
+    Type: String
+    Description: "Full Repository Name (GitHub Account/repository name)"
+    Default: "dakkkob/dakob-cz"
   RepositoryBranchName:
     Type: String
     Default: "master"  
+  GitHubConnection:
+    Type: String
+    Default: "arn:aws:codestar-connections:eu-central-1:234455548335:connection/5dbfedb4-2476-4277-9197-7aba83d89ec2"
 
 Conditions:
   DomainExists:
@@ -34,7 +44,7 @@ Conditions:
       - Fn::Equals:
           - ''
           - Ref: CertificateID
-
+          
 Resources: 
   S3BucketHosting:
     Type: "AWS::S3::Bucket"    
@@ -68,11 +78,6 @@ Resources:
       ServiceToken: !ImportValue ArnOfLambdaFunctionPurgeS3
       BucketName: !Ref S3BucketCodeCommit
 
-  CodeCommitRepository:
-    Type: "AWS::CodeCommit::Repository"
-    Properties:
-      RepositoryName: !Ref ProjectName
-
   CodeBuildProject:
     Type: "AWS::CodeBuild::Project"
     Properties: 
@@ -89,7 +94,7 @@ Resources:
         Type: "CODEPIPELINE"
       Artifacts:
         EncryptionDisabled: false
-        Name: !Ref CodeCommitRepository
+        Name: !Ref S3BucketCodeCommit
         Packaging: "NONE"
         Type: "CODEPIPELINE"
       Cache:
@@ -131,16 +136,6 @@ Resources:
         MaxSessionDuration: 3600
         ManagedPolicyArns: 
           - !Ref IAMManagedPolicyForPipeline      
-
-  IAMRoleForBucketRepositoryToStartPipeline:
-      Type: "AWS::IAM::Role"
-      Properties:
-          Path: "/service-role/"
-          RoleName: !Sub "cwe-role-${AWS::Region}-${S3BucketCodeCommit}"
-          AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-          MaxSessionDuration: 3600
-          ManagedPolicyArns: 
-            - !Ref IAMManagedPolicyForRepositoryBucketToStartPipeline
 
   IAMManagedPolicyCodeBuild:
     Type: "AWS::IAM::ManagedPolicy"
@@ -382,27 +377,6 @@ Resources:
                   "Version": "2012-10-17"
               }
 
-  IAMManagedPolicyForRepositoryBucketToStartPipeline:
-      Type: "AWS::IAM::ManagedPolicy"
-      Properties:
-          ManagedPolicyName: !Sub "start-pipeline-execution-${AWS::Region}-${ProjectName}"
-          Path: "/service-role/"
-          PolicyDocument: !Sub |
-              {
-                  "Version": "2012-10-17",
-                  "Statement": [
-                      {
-                          "Effect": "Allow",
-                          "Action": [
-                              "codepipeline:StartPipelineExecution"
-                          ],
-                          "Resource": [
-                              "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:Pipeline${ProjectName}"
-                          ]
-                      }
-                  ]
-              }
-
   LogsLogGroup:
       Type: "AWS::Logs::LogGroup"
       Properties:
@@ -486,13 +460,14 @@ Resources:
                   ActionTypeId: 
                       Category: "Source"
                       Owner: "AWS"
-                      Provider: "CodeCommit"
+                      Provider: "CodeStarSourceConnection"
                       Version: "1"
                   Configuration: 
                       BranchName: !Ref RepositoryBranchName
                       OutputArtifactFormat: "CODE_ZIP"
-                      PollForSourceChanges: "false"
-                      RepositoryName: !GetAtt CodeCommitRepository.Name
+                      FullRepositoryId: !Ref RepositoryName
+                      ConnectionArn: !Ref GitHubConnection
+                      DetectChanges: "Yes"
                   OutputArtifacts: 
                     - 
                       Name: "SourceArtifact"
@@ -558,32 +533,14 @@ Resources:
                   Region: !Ref AWS::Region
                   RunOrder: 1
 
-  EventsRule:
-      Type: "AWS::Events::Rule"
-      Properties:
-          Name: !Sub "codepipeline-${ProjectName}-${RepositoryBranchName}-rule"
-          Description: "Amazon CloudWatch Events rule to automatically start your pipeline when a change occurs in the AWS CodeCommit source repository and branch. Deleting this may prevent changes from being detected in that pipeline. Read more: http://docs.aws.amazon.com/codepipeline/latest/userguide/pipelines-about-starting.html"
-          EventPattern: !Sub "{\"source\":[\"aws.codecommit\"],\"detail-type\":[\"CodeCommit Repository State Change\"],\"resources\":[\"arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepository}\"],\"detail\":{\"event\":[\"referenceCreated\",\"referenceUpdated\"],\"referenceType\":[\"branch\"],\"referenceName\":[\"${RepositoryBranchName}\"]}}"
-          State: "ENABLED"
-          Targets: 
-            - 
-              Arn: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:Pipeline${ProjectName}"
-              Id: !Sub "codepipeline-event-${ProjectName}"
-              RoleArn: !GetAtt IAMRoleForBucketRepositoryToStartPipeline.Arn
-          EventBusName: "default"
-
 Outputs:
   WebPageURL:
     Description: "URL of the page"
     Value: !GetAtt CloudFrontDistribution.DomainName
-  RepositoryCloneURL:
-    Description: "URL for HTTP Clone"
-    Value: !GetAtt CodeCommitRepository.CloneUrlHttp
 
 # TODO:
 # cleanup of codepipeline buckets (might not be needed if moved to github?)
-# pipeline fails immediately (missing master) (might not be needed if moved to github?)
 # website monitoring
 # integrate with service catalogue
 # improve codebuild
-# cleanup
+# last review & cleanup
