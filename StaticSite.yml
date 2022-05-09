@@ -78,55 +78,6 @@ Resources:
       ServiceToken: !ImportValue ArnOfLambdaFunctionPurgeS3
       BucketName: !Ref S3BucketCodeCommit
 
-  CodeBuildProject:
-    Type: "AWS::CodeBuild::Project"
-    Properties: 
-      Name: !Ref ProjectName
-      Source:
-        BuildSpec: !Sub |
-                    version: 0.2
-                    
-                    phases:
-                      build:
-                        commands:
-                            - aws s3 rm --recursive "s3://${S3BucketHosting}/"
-        InsecureSsl: false
-        Type: "CODEPIPELINE"
-      Artifacts:
-        EncryptionDisabled: false
-        Name: !Ref S3BucketCodeCommit
-        Packaging: "NONE"
-        Type: "CODEPIPELINE"
-      Cache:
-        Type: "NO_CACHE"
-      Environment: 
-          ComputeType: "BUILD_GENERAL1_SMALL"
-          Image: "aws/codebuild/amazonlinux2-aarch64-standard:1.0"
-          ImagePullCredentialsType: "CODEBUILD"
-          PrivilegedMode: false
-          Type: "ARM_CONTAINER"
-      ServiceRole: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/${IAMRoleForCodeBuild}"
-      TimeoutInMinutes: 60
-      QueuedTimeoutInMinutes: 480
-      EncryptionKey: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/s3"
-      BadgeEnabled: false
-      LogsConfig: 
-          CloudWatchLogs: 
-              Status: "ENABLED"
-          S3Logs: 
-              Status: "DISABLED"
-              EncryptionDisabled: false
-      Visibility: "PRIVATE"
-
-  IAMRoleForCodeBuild:
-    Type: "AWS::IAM::Role"
-    Properties:
-        Path: "/service-role/"
-        AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"codebuild.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-        MaxSessionDuration: 3600
-        ManagedPolicyArns: 
-          - !Ref IAMManagedPolicyCodeBuild
-
   IAMRoleForPipeLine:
     Type: "AWS::IAM::Role"
     Properties:
@@ -136,66 +87,6 @@ Resources:
         MaxSessionDuration: 3600
         ManagedPolicyArns: 
           - !Ref IAMManagedPolicyForPipeline      
-
-  IAMManagedPolicyCodeBuild:
-    Type: "AWS::IAM::ManagedPolicy"
-    Properties:
-        Path: "/service-role/"
-        PolicyDocument: !Sub |
-            {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Resource": [
-                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}",
-                            "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}:*"
-                        ],
-                        "Action": [
-                            "logs:CreateLogGroup",
-                            "logs:CreateLogStream",
-                            "logs:PutLogEvents"
-                        ]
-                    },                   
-                    {
-                        "Effect": "Allow",
-                        "Resource": [
-                            "arn:aws:s3:::${S3BucketCodeCommit}",
-                            "arn:aws:s3:::${S3BucketCodeCommit}/*"
-                        ],
-                        "Action": [
-                            "s3:PutObject",
-                            "s3:GetObject",
-                            "s3:GetObjectVersion",
-                            "s3:GetBucketAcl",
-                            "s3:GetBucketLocation"
-                        ]
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Action": [
-                            "codebuild:CreateReportGroup",
-                            "codebuild:CreateReport",
-                            "codebuild:UpdateReport",
-                            "codebuild:BatchPutTestCases",
-                            "codebuild:BatchPutCodeCoverages"
-                        ],
-                        "Resource": [
-                            "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${ProjectName}-*"
-                        ]
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Resource": [
-                            "arn:aws:s3:::${S3BucketHosting}/*",
-                            "arn:aws:s3:::${S3BucketHosting}"
-                        ],
-                        "Action": [
-                            "s3:*"
-                        ]
-                    }
-                ]
-            }
 
   IAMManagedPolicyForPipeline:
       Type: "AWS::IAM::ManagedPolicy"
@@ -377,11 +268,6 @@ Resources:
                   "Version": "2012-10-17"
               }
 
-  LogsLogGroup:
-      Type: "AWS::Logs::LogGroup"
-      Properties:
-          LogGroupName: !Sub "/aws/codebuild/${ProjectName}"
-
   CloudFrontDistribution:
       Type: "AWS::CloudFront::Distribution"
       Properties:
@@ -475,25 +361,22 @@ Resources:
                   Namespace: "SourceVariables"
                   RunOrder: 1
             - 
-              Name: "Build"
+              Name: "CleanupS3HostingByLambda"
               Actions: 
                 - 
-                  Name: !Sub "Build${ProjectName}"
+                  Name: "CleanupS3HostingByLambda"
                   ActionTypeId: 
-                      Category: "Build"
+                      Category: "Invoke"
                       Owner: "AWS"
-                      Provider: "CodeBuild"
+                      Provider: "Lambda"
                       Version: "1"
                   Configuration: 
-                      ProjectName: !Ref CodeBuildProject
+                      FunctionName: !ImportValue NameOfLambdaFunctionPurgeS3ForBuild
+                      UserParameters:  !Sub "{\"S3Bucket\": \"${S3BucketHosting}\"}"
                   InputArtifacts: 
                     - 
                       Name: "SourceArtifact"
-                  OutputArtifacts: 
-                    - 
-                      Name: "BuildArtifact"
-                  Region: !Ref AWS::Region
-                  Namespace: "BuildVariables"
+                  Region: !Ref AWS::Region                  
                   RunOrder: 1
             - 
               Name: "Deploy"
@@ -532,6 +415,24 @@ Resources:
                       Name: "SourceArtifact"
                   Region: !Ref AWS::Region
                   RunOrder: 1
+            - 
+              Name: "CleanupS3CodeCommitByLambda"
+              Actions: 
+                - 
+                  Name: "CleanupS3CodeCommitByLambda"
+                  ActionTypeId: 
+                      Category: "Invoke"
+                      Owner: "AWS"
+                      Provider: "Lambda"
+                      Version: "1"
+                  Configuration: 
+                      FunctionName: !ImportValue NameOfLambdaFunctionPurgeS3ForBuild
+                      UserParameters:  !Sub "{\"S3Bucket\": \"${S3BucketCodeCommit}\"}"
+                  InputArtifacts: 
+                    - 
+                      Name: "SourceArtifact"
+                  Region: !Ref AWS::Region                  
+                  RunOrder: 1              
 
 Outputs:
   WebPageURL:
@@ -541,5 +442,4 @@ Outputs:
 # TODO:
 # website monitoring
 # integrate with service catalogue
-# improve codebuild
 # last review & cleanups

@@ -186,7 +186,7 @@ Resources:
                                 ["UserParameters"]
                         )
                         bucket = user_params["S3Bucket"]
-                        logger.info("bucket: {}, event['RequestType']: {}".format(bucket,event['RequestType']))
+                        logger.info("bucket: {}: ".format(bucket))
                         s3 = boto3.resource('s3')
                         bucket = s3.Bucket(bucket)
                         for obj in bucket.objects.filter():
@@ -257,7 +257,15 @@ Resources:
                           "Action": [
                               "s3:*"
                           ]
-                      }                  
+                      },
+                      {
+                          "Effect": "Allow",
+                          "Action": [
+                              "codepipeline:PutJobFailureResult",
+                              "codepipeline:PutJobSuccessResult"
+                          ],
+                          "Resource": "*"
+                      }
                   ]
               }          
 
