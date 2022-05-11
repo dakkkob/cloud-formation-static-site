@@ -438,8 +438,3 @@ Outputs:
   WebPageURL:
     Description: "URL of the page"
     Value: !GetAtt CloudFrontDistribution.DomainName
-
-# TODO:
-# website monitoring
-# integrate with service catalogue
-# last review & cleanups

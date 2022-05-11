@@ -1,0 +1,250 @@
+Description: |
+    Template to create SNS topic, subscription, alerts and lambdas for monitoring of a particular project/website.
+    It supports up to 5 URLs to be monitored.
+
+Parameters: 
+  EmailNotification1: 
+    Type: String
+    Description: "Enter the destination email to receive the alarms."
+
+  EmailNotification2: 
+    Type: String
+    Description: "Enter the destination email to receive the alarms."
+
+  UrlToMonitor1:
+    Type: String
+    Description: "Enter full URL including https://."
+
+  UrlToMonitor2:
+    Type: String
+    Description: "Enter full URL including https://."
+
+  UrlToMonitor3:
+    Type: String
+    Description: "Enter full URL including https://."
+
+  UrlToMonitor4:
+    Type: String
+    Description: "Enter full URL including https://."
+
+  UrlToMonitor5:
+    Type: String
+    Description: "Enter full URL including https://."
+
+  ScheduleExpression:
+    Type: String
+    AllowedValues:
+      - "rate(5 minutes)"
+      - "rate(10 minutes)"
+      - "rate(1 hours)"
+    Default: "rate(5 minutes)"
+
+  ProjectName:
+    Type: String
+
+Conditions:
+    EmailNotification1NotEmpty: !Not [ !Equals [ !Ref EmailNotification1, '' ] ]
+    EmailNotification2NotEmpty: !Not [ !Equals [ !Ref EmailNotification2, '' ] ]
+
+    UrlToMonitor1NotEmpty: !Not [ !Equals [ !Ref UrlToMonitor1, '' ]]
+    UrlToMonitor2NotEmpty: !Not [ !Equals [ !Ref UrlToMonitor2, '' ]]
+    UrlToMonitor3NotEmpty: !Not [ !Equals [ !Ref UrlToMonitor3, '' ]]
+    UrlToMonitor4NotEmpty: !Not [ !Equals [ !Ref UrlToMonitor4, '' ]]
+    UrlToMonitor5NotEmpty: !Not [ !Equals [ !Ref UrlToMonitor5, '' ]]
+
+Resources:
+  uptimeAlarm1:
+    Type: AWS::CloudWatch::Alarm
+    Condition: UrlToMonitor1NotEmpty
+    Properties:
+      AlarmName: !Join [ "-", [ !Ref UrlToMonitor1, "is-down" ] ]
+      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+      - Name: "FunctionName"
+        Value: "UptimeLambdaFunction"
+      Statistic: "Average"
+      ComparisonOperator: "GreaterThanThreshold"
+      Threshold: 0
+      EvaluationPeriods: 1
+      Period: 300
+      TreatMissingData: "missing"
+
+  uptimeAlarm2:
+    Type: AWS::CloudWatch::Alarm
+    Condition: UrlToMonitor2NotEmpty
+    Properties:
+      AlarmName: !Join [ "-", [ !Ref UrlToMonitor2, "is-down" ] ]
+      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+      - Name: "FunctionName"
+        Value: "UptimeLambdaFunction"
+      Statistic: "Average"
+      ComparisonOperator: "GreaterThanThreshold"
+      Threshold: 0
+      EvaluationPeriods: 1
+      Period: 300
+      TreatMissingData: "missing"
+  
+  uptimeAlarm3:
+    Type: AWS::CloudWatch::Alarm
+    Condition: UrlToMonitor3NotEmpty
+    Properties:
+      AlarmName: !Join [ "-", [ !Ref UrlToMonitor3, "is-down" ] ]
+      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+      - Name: "FunctionName"
+        Value: "UptimeLambdaFunction"
+      Statistic: "Average"
+      ComparisonOperator: "GreaterThanThreshold"
+      Threshold: 0
+      EvaluationPeriods: 1
+      Period: 300
+      TreatMissingData: "missing"
+
+  uptimeAlarm4:
+    Type: AWS::CloudWatch::Alarm
+    Condition: UrlToMonitor4NotEmpty
+    Properties:
+      AlarmName: !Join [ "-", [ !Ref UrlToMonitor4, "is-down" ] ]
+      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+      - Name: "FunctionName"
+        Value: "UptimeLambdaFunction"
+      Statistic: "Average"
+      ComparisonOperator: "GreaterThanThreshold"
+      Threshold: 0
+      EvaluationPeriods: 1
+      Period: 300
+      TreatMissingData: "missing"
+
+  uptimeAlarm5:
+    Type: AWS::CloudWatch::Alarm
+    Condition: UrlToMonitor5NotEmpty
+    Properties:
+      AlarmName: !Join [ "-", [ !Ref UrlToMonitor5, "is-down" ] ]
+      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+      - Name: "FunctionName"
+        Value: "UptimeLambdaFunction"
+      Statistic: "Average"
+      ComparisonOperator: "GreaterThanThreshold"
+      Threshold: 0
+      EvaluationPeriods: 1
+      Period: 300
+      TreatMissingData: "missing"            
+
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "SNSTopic${ProjectName}"
+
+  SnsSubscription1:
+    Type: AWS::SNS::Subscription
+    Condition: EmailNotification1NotEmpty
+    Properties:
+      Endpoint: !Ref EmailNotification1
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic'
+
+  SnsSubscription2:
+    Type: AWS::SNS::Subscription
+    Condition: EmailNotification2NotEmpty
+    Properties:
+      Endpoint: !Ref EmailNotification2
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic'
+
+  ScheduledRule1: 
+    Type: AWS::Events::Rule
+    Condition: UrlToMonitor1NotEmpty
+    Properties: 
+      Description: !Sub "ScheduledRule for ${UrlToMonitor1} checks"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: !ImportValue ArnOfUptimeLambdaFunction
+          Id: "TargetFunctionV1"
+          Input: !Sub |
+            { 
+               "WebsiteUrl": "${UrlToMonitor1}" 
+            }
+
+  ScheduledRule2: 
+    Type: AWS::Events::Rule
+    Condition: UrlToMonitor2NotEmpty
+    Properties: 
+      Description: !Sub "ScheduledRule for ${UrlToMonitor2} checks"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: !ImportValue ArnOfUptimeLambdaFunction
+          Id: "TargetFunctionV2"
+          Input: !Sub |
+            { 
+               "WebsiteUrl": "${UrlToMonitor2}" 
+            }
+
+  ScheduledRule3: 
+    Type: AWS::Events::Rule
+    Condition: UrlToMonitor3NotEmpty
+    Properties: 
+      Description: !Sub "ScheduledRule for ${UrlToMonitor3} checks"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: !ImportValue ArnOfUptimeLambdaFunction
+          Id: "TargetFunctionV3"
+          Input: !Sub |
+            { 
+               "WebsiteUrl": "${UrlToMonitor3}" 
+            }
+
+  ScheduledRule4: 
+    Type: AWS::Events::Rule
+    Condition: UrlToMonitor4NotEmpty
+    Properties: 
+      Description: !Sub "ScheduledRule for ${UrlToMonitor4} checks"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: !ImportValue ArnOfUptimeLambdaFunction
+          Id: "TargetFunctionV4"
+          Input: !Sub |
+            { 
+               "WebsiteUrl": "${UrlToMonitor4}" 
+            }
+
+  ScheduledRule5: 
+    Type: AWS::Events::Rule
+    Condition: UrlToMonitor5NotEmpty
+    Properties: 
+      Description: !Sub "ScheduledRule for ${UrlToMonitor5} checks"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: !ImportValue ArnOfUptimeLambdaFunction            
+          Id: "TargetFunctionV5"
+          Input: !Sub |
+            { 
+               "WebsiteUrl": "${UrlToMonitor5}" 
+            }

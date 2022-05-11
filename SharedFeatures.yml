@@ -3,6 +3,11 @@ Description: |
     - Lambda for CloudFront distribution invalidation
     - Lambda for S3 bucket cleanup
 
+Parameters:
+    ProjectName:
+        Type: String
+
+
 Resources:
   LambdaFunctionInvalidateCF:
       Type: "AWS::Lambda::Function"
@@ -114,7 +119,8 @@ Resources:
   LogsLogGroupInvalidateCloudFrontDistribution:
     Type: "AWS::Logs::LogGroup"
     Properties:
-        LogGroupName: "/aws/lambda/InvalidateCloudFrontDistribution"                  
+        LogGroupName: "/aws/lambda/InvalidateCloudFrontDistribution"      
+        RetentionInDays: 7            
 
   LambdaFunctionPurgeS3:
     Type: AWS::Lambda::Function
@@ -273,11 +279,101 @@ Resources:
     Type: "AWS::Logs::LogGroup"
     Properties:
         LogGroupName: "/aws/lambda/PurgeS3"        
+        RetentionInDays: 7
 
   LogsLogGroupPurgeS3ForBuild:
     Type: "AWS::Logs::LogGroup"
     Properties:
         LogGroupName: "/aws/lambda/PurgeS3ForBuild"   
+        RetentionInDays: 7
+
+### Section for monitoring
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: "UptimeLambdaFunction"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${ProjectName}-ScheduledRule*"      
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: allow-logs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'logs:*'
+            Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/UptimeLambdaFunction:*"
+      - PolicyName: put-cw-data
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'cloudwatch:PutMetricData'
+            Resource: '*'
+
+  UptimeLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties: 
+      FunctionName: "UptimeLambdaFunction"
+      Handler: "index.handler"
+      Runtime: nodejs14.x
+      Timeout: 300
+      Role:
+        Fn::GetAtt:
+          - "LambdaExecutionRole"
+          - "Arn"
+      Code:
+        ZipFile: |
+          'use strict';
+          var url = require('url');          
+          exports.handler = function(event, context, callback) {            
+            console.log(event);
+            var target = event.WebsiteUrl
+            var urlObject = url.parse(target);
+            var mod = require(
+              urlObject.protocol.substring(0, urlObject.protocol.length - 1)
+            );
+            console.log('[INFO] - Checking ' + target);
+            var req = mod.request(urlObject, function(res) {
+              res.setEncoding('utf8');
+              res.on('data', function(chunk) {
+                console.log('[INFO] - Read body chunk');
+              });
+              res.on('end', function() {
+                console.log('[INFO] - Response end');
+                callback();
+              });
+            });
+            req.on('error', function(e) {
+              console.log('[ERROR] - ' + e.message);
+              callback(e);
+            });
+            req.end();
+          };
+
+
+  LogsLogGroupUptimeLambdaFunction:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+        LogGroupName: "/aws/lambda/UptimeLambdaFunction"                
+        RetentionInDays: 7
 
 Outputs:
   ArnOfLambdaFunctionInvalidateCF:
@@ -309,3 +405,13 @@ Outputs:
     Value: !Ref LambdaFunctionPurgeS3ForBuild
     Export:
       Name: NameOfLambdaFunctionPurgeS3ForBuild
+
+  ArnOfUptimeLambdaFunction:
+    Value: !GetAtt UptimeLambdaFunction.Arn
+    Export:
+      Name: ArnOfUptimeLambdaFunction
+
+  NameOfUptimeLambdaFunction:
+    Value: !Ref UptimeLambdaFunction
+    Export:
+      Name: NameOfUptimeLambdaFunction
