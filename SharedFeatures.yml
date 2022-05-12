@@ -296,7 +296,7 @@ Resources:
         Ref: "UptimeLambdaFunction"
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
-      SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${ProjectName}-ScheduledRule*"      
+      SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*ScheduledRule*"      
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role

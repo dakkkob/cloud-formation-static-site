@@ -59,7 +59,7 @@ Resources:
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor1, "is-down" ] ]
       AlarmDescription: "Alarm if lambda errors out too many times"
-      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
       Namespace: "AWS/Lambda"
       MetricName: "Errors"
       Dimensions:
@@ -78,7 +78,7 @@ Resources:
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor2, "is-down" ] ]
       AlarmDescription: "Alarm if lambda errors out too many times"
-      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
       Namespace: "AWS/Lambda"
       MetricName: "Errors"
       Dimensions:
@@ -97,7 +97,7 @@ Resources:
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor3, "is-down" ] ]
       AlarmDescription: "Alarm if lambda errors out too many times"
-      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
       Namespace: "AWS/Lambda"
       MetricName: "Errors"
       Dimensions:
@@ -116,7 +116,7 @@ Resources:
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor4, "is-down" ] ]
       AlarmDescription: "Alarm if lambda errors out too many times"
-      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:MySNSTopic" ]
+      AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
       Namespace: "AWS/Lambda"
       MetricName: "Errors"
       Dimensions:
@@ -172,7 +172,7 @@ Resources:
   ScheduledRule1: 
     Type: AWS::Events::Rule
     Condition: UrlToMonitor1NotEmpty
-    Properties: 
+    Properties:       
       Description: !Sub "ScheduledRule for ${UrlToMonitor1} checks"
       ScheduleExpression: !Ref ScheduleExpression
       State: "ENABLED"
