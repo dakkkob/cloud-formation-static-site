@@ -25,13 +25,13 @@ Parameters:
   RepositoryName:
     Type: String
     Description: "Full Repository Name (GitHub Account/repository name)"
-    Default: "dakkkob/dakob-cz"
   RepositoryBranchName:
     Type: String
     Default: "master"  
   GitHubConnection:
     Type: String
-    Default: "arn:aws:codestar-connections:eu-central-1:234455548335:connection/5dbfedb4-2476-4277-9197-7aba83d89ec2"
+    Description: "ARN of the Github Connection - you can define/get it in CodeCommit > Settings > Connections"
+
 
 Conditions:
   DomainExists:
