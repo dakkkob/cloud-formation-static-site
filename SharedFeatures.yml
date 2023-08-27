@@ -333,7 +333,7 @@ Resources:
     Properties: 
       FunctionName: "UptimeLambdaFunction"
       Handler: "index.handler"
-      Runtime: nodejs14.x
+      Runtime: nodejs16.x
       Timeout: 300
       Role:
         Fn::GetAtt:
@@ -341,33 +341,43 @@ Resources:
           - "Arn"
       Code:
         ZipFile: |
-          'use strict';
-          var url = require('url');          
-          exports.handler = function(event, context, callback) {            
-            console.log(event);
-            var target = event.WebsiteUrl
-            var urlObject = url.parse(target);
-            var mod = require(
-              urlObject.protocol.substring(0, urlObject.protocol.length - 1)
-            );
-            console.log('[INFO] - Checking ' + target);
-            var req = mod.request(urlObject, function(res) {
-              res.setEncoding('utf8');
-              res.on('data', function(chunk) {
-                console.log('[INFO] - Read body chunk');
-              });
-              res.on('end', function() {
-                console.log('[INFO] - Response end');
-                callback();
-              });
-            });
-            req.on('error', function(e) {
-              console.log('[ERROR] - ' + e.message);
-              callback(e);
-            });
-            req.end();
-          };
+            'use strict';
 
+            exports.handler = function(event, context, callback) {
+              console.log(event);
+
+              const target = event.WebsiteUrl;
+              const urlObject = new URL(target);
+
+              const protocol = urlObject.protocol === 'https:' ? 'https' : 'http';
+              const mod = require(protocol);
+
+              console.log('[INFO] - Checking ' + target);
+              const options = {
+                hostname: urlObject.hostname,
+                port: urlObject.port,
+                path: urlObject.pathname + urlObject.search,
+                method: 'GET'
+              };
+
+              const req = mod.request(options, function(res) {
+                res.setEncoding('utf8');
+                res.on('data', function(chunk) {
+                  console.log('[INFO] - Read body chunk');
+                });
+                res.on('end', function() {
+                  console.log('[INFO] - Response end');
+                  callback();
+                });
+              });
+
+              req.on('error', function(e) {
+                console.log('[ERROR] - ' + e.message);
+                callback(e);
+              });
+
+              req.end();
+            };
 
   LogsLogGroupUptimeLambdaFunction:
     Type: "AWS::Logs::LogGroup"
