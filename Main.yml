@@ -61,11 +61,14 @@ Resources:
               Statement: 
                 - 
                   Effect: "Allow"
-                  Principal: 
-                      AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontCloudFrontOriginAccessIdentity}"
                   Action: "s3:GetObject"
                   Resource: !Sub "arn:aws:s3:::${S3BucketHosting}/*"
-
+                  Principal: 
+                    Service: cloudfront.amazonaws.com
+                  Condition:
+                    StringEquals:
+                      AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution.Id}
+                      
   CleanupBucketHostingOnDelete:
     Type: Custom::cleanupbucket
     Properties:
@@ -283,13 +286,13 @@ Resources:
                   - !Ref "AWS::NoValue"
               Origins: 
                 - 
+                  Id: !Sub "${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
+                  DomainName: !Sub "${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
+                  S3OriginConfig:
+                    OriginAccessIdentity: ''
+                  OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
                   ConnectionAttempts: 3
                   ConnectionTimeout: 10
-                  DomainName: !Sub "${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
-                  Id: !Sub "${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
-                  OriginPath: ""
-                  S3OriginConfig: 
-                      OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontCloudFrontOriginAccessIdentity}"
               OriginGroups: 
                   Quantity: 0
               DefaultCacheBehavior: 
@@ -321,12 +324,15 @@ Resources:
               HttpVersion: "http2"
               DefaultRootObject: "index.html"
               IPV6Enabled: true
-
-  CloudFrontCloudFrontOriginAccessIdentity:
-      Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
-      Properties:
-          CloudFrontOriginAccessIdentityConfig: 
-              Comment: !Sub "access-identity-${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
+  
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Ref AWS::StackName
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   CodePipeline:
       Type: "AWS::CodePipeline::Pipeline"
