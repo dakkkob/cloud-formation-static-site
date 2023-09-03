@@ -15,7 +15,15 @@ Parameters:
     ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-4}"
     Description: "For example index.html or index.php"
     Default: "index.html"
-  DomainName:
+  DomainName1:
+    Type: String
+    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-3}"
+    Description: "Domain name/CNAME which will point to cloudfront distribution. www will be added automatically. Providing certificate ID is then mandatory!"    
+  DomainName2:
+    Type: String
+    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-3}"
+    Description: "Domain name/CNAME which will point to cloudfront distribution. www will be added automatically. Providing certificate ID is then mandatory!"    
+  DomainName3:
     Type: String
     ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-3}"
     Description: "Domain name/CNAME which will point to cloudfront distribution. www will be added automatically. Providing certificate ID is then mandatory!"    
@@ -34,11 +42,21 @@ Parameters:
 
 
 Conditions:
-  DomainExists:
+  Domain1Exists:
     Fn::Not:
       - Fn::Equals:
           - ''
-          - Ref: DomainName
+          - Ref: DomainName1
+  Domain2Exists:
+    Fn::Not:
+      - Fn::Equals:
+          - ''
+          - Ref: DomainName2
+  Domain3Exists:
+    Fn::Not:
+      - Fn::Equals:
+          - ''
+          - Ref: DomainName3         
   CertificateExists:
     Fn::Not:
       - Fn::Equals:
@@ -277,13 +295,29 @@ Resources:
           DistributionConfig:               
               Aliases:
                 - Fn::If:
-                  - DomainExists
-                  - !Ref DomainName
+                  - Domain1Exists
+                  - !Ref DomainName1
                   - !Ref "AWS::NoValue"
                 - Fn::If:
-                  - DomainExists
-                  - !Sub "www.${DomainName}"
+                  - Domain1Exists
+                  - !Sub "www.${DomainName1}"
                   - !Ref "AWS::NoValue"
+                - Fn::If:
+                  - Domain2Exists
+                  - !Ref DomainName2
+                  - !Ref "AWS::NoValue"
+                - Fn::If:
+                  - Domain2Exists
+                  - !Sub "www.${DomainName2}"
+                  - !Ref "AWS::NoValue"
+                - Fn::If:
+                  - Domain3Exists
+                  - !Ref DomainName3
+                  - !Ref "AWS::NoValue"
+                - Fn::If:
+                  - Domain3Exists
+                  - !Sub "www.${DomainName3}"
+                  - !Ref "AWS::NoValue"                                    
               Origins: 
                 - 
                   Id: !Sub "${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
