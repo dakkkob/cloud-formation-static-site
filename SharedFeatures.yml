@@ -18,47 +18,53 @@ Resources:
             - "x86_64"
           Code: 
               ZipFile: |
-                import json
-                import boto3
+                  import json
+                  import boto3
 
-                code_pipeline = boto3.client("codepipeline")
-                cloud_front = boto3.client("cloudfront")
+                  code_pipeline = boto3.client("codepipeline")
+                  cloud_front = boto3.client("cloudfront")
 
-                def lambda_handler(event, context):
+                  def lambda_handler(event, context):
                     job_id = event["CodePipeline.job"]["id"]
                     try:
-                        user_params = json.loads(
-                            event["CodePipeline.job"]
-                                ["data"]
-                                ["actionConfiguration"]
-                                ["configuration"]
-                                ["UserParameters"]
-                        )
-                        cloud_front.create_invalidation(
-                            DistributionId=user_params["distributionId"],
-                            InvalidationBatch={
-                                "Paths": {
-                                    "Quantity": len(user_params["objectPaths"]),
-                                    "Items": user_params["objectPaths"],
-                                },
-                                "CallerReference": event["CodePipeline.job"]["id"],
-                            },
-                        )
+                      user_params = json.loads(
+                        event["CodePipeline.job"]
+                          ["data"]
+                          ["actionConfiguration"]
+                          ["configuration"]
+                          ["UserParameters"]
+                      )
+                                    
+                      distribution_id = user_params["distributionId"]
+                      object_paths = user_params["objectPaths"]
+                      
+                      invalidation_batch = {
+                        "Paths": {
+                          "Quantity": len(object_paths),
+                          "Items": object_paths,
+                        },
+                        "CallerReference": event["CodePipeline.job"]["id"],
+                      }
+                      
+                      cloud_front.create_invalidation(
+                        DistributionId=distribution_id,
+                        InvalidationBatch=invalidation_batch,
+                      )
                     except Exception as e:
-                        code_pipeline.put_job_failure_result(
-                            jobId=job_id,
-                            failureDetails={
-                                "type": "JobFailed",
-                                "message": str(e),
-                            },
-                        )
+                      code_pipeline.put_job_failure_result(
+                        jobId=job_id,
+                        failureDetails={
+                          "type": "JobFailed",
+                          "message": str(e),
+                        },
+                      )
                     else:
-                        code_pipeline.put_job_success_result(
-                            jobId=job_id,
-                        )
+                      code_pipeline.put_job_success_result(
+                        jobId=job_id,
+                      )
           MemorySize: 128
           Role: !GetAtt IAMRoleForLambdaCF.Arn
-          Runtime: "python3.8"
+          Runtime: "python3.10"
           Timeout: 3
           TracingConfig: 
               Mode: "PassThrough"
@@ -127,37 +133,38 @@ Resources:
     Properties:
       FunctionName: "PurgeS3"
       Code: 
-        ZipFile: 
-          !Sub |
-            import json, boto3, logging
+        ZipFile: |
+            import json
+            import boto3
+            import logging
             import cfnresponse
+
             logger = logging.getLogger()
             logger.setLevel(logging.INFO)
 
             def lambda_handler(event, context):
-                logger.info("event: {}".format(event))
-                try:
-                    bucket = event['ResourceProperties']['BucketName']
-                    logger.info("bucket: {}, event['RequestType']: {}".format(bucket,event['RequestType']))
-                    if event['RequestType'] == 'Delete':
-                        s3 = boto3.resource('s3')
-                        bucket = s3.Bucket(bucket)
-                        for obj in bucket.objects.filter():
-                            logger.info("delete obj: {}".format(obj))
-                            s3.Object(bucket.name, obj.key).delete()
+              logger.info(f"event: {event}")
+              try:
+                bucket = event['ResourceProperties']['BucketName']
+                logger.info(f"bucket: {bucket}, event['RequestType']: {event['RequestType']}")
+                if event['RequestType'] == 'Delete':
+                  s3 = boto3.resource('s3')
+                  bucket = s3.Bucket(bucket)
+                  for obj in bucket.objects.filter():
+                    logger.info(f"delete obj: {obj}")
+                    s3.Object(bucket.name, obj.key).delete()
 
-                    sendResponseCfn(event, context, cfnresponse.SUCCESS)
-                except Exception as e:
-                    logger.info("Exception: {}".format(e))
-                    sendResponseCfn(event, context, cfnresponse.FAILED)
+                sendResponseCfn(event, context, cfnresponse.SUCCESS)
+              except Exception as e:
+                logger.info(f"Exception: {e}")
+                sendResponseCfn(event, context, cfnresponse.FAILED)
 
             def sendResponseCfn(event, context, responseStatus):
-                responseData = {}
-                responseData['Data'] = {}
-                cfnresponse.send(event, context, responseStatus, responseData, "CustomResourcePhysicalID")            
-
+              responseData = {}
+              responseData['Data'] = {}
+              cfnresponse.send(event, context, responseStatus, responseData, "CustomResourcePhysicalID")
       Handler: "index.lambda_handler"
-      Runtime: python3.7
+      Runtime: python3.10
       MemorySize: 128
       Timeout: 60
       Role: !GetAtt IAMRoleForLambdaPurgeS3.Arn    
@@ -171,48 +178,54 @@ Resources:
             - "x86_64"
           Code: 
               ZipFile: |
-                import json
-                import boto3
-                import logging
+                  import json
+                  import boto3
+                  import logging
 
-                logger = logging.getLogger()
-                logger.setLevel(logging.INFO)
+                  logger = logging.getLogger()
+                  logger.setLevel(logging.INFO)
 
-                code_pipeline = boto3.client("codepipeline")
+                  code_pipeline = boto3.client("codepipeline")
 
-                def lambda_handler(event, context):
-                    logger.info("event: {}".format(event))
+                  def lambda_handler(event, context):
+                    logger.info(f"event: {event}")
                     job_id = event["CodePipeline.job"]["id"]
+                    
                     try:
-                        user_params = json.loads(
-                            event["CodePipeline.job"]
-                                ["data"]
-                                ["actionConfiguration"]
-                                ["configuration"]
-                                ["UserParameters"]
-                        )
-                        bucket = user_params["S3Bucket"]
-                        logger.info("bucket: {}: ".format(bucket))
-                        s3 = boto3.resource('s3')
-                        bucket = s3.Bucket(bucket)
-                        for obj in bucket.objects.filter():
-                            logger.info("delete obj: {}".format(obj))
-                            s3.Object(bucket.name, obj.key).delete()
+                      user_params = json.loads(
+                        event["CodePipeline.job"]
+                          ["data"]
+                          ["actionConfiguration"]
+                          ["configuration"]
+                          ["UserParameters"]
+                      )
+                      bucket_name = user_params["S3Bucket"]
+                      logger.info(f"bucket: {bucket_name}")
+                      
+                      s3 = boto3.resource('s3')
+                      bucket = s3.Bucket(bucket_name)
+                      
+                      objects_to_delete = [{'Key': obj.key} for obj in bucket.objects.all()]
+                      if objects_to_delete:
+                        logger.info("Deleting objects:")
+                        for obj in objects_to_delete:
+                          logger.info(f"delete obj: {obj['Key']}")
+                        bucket.delete_objects(Delete={'Objects': objects_to_delete})
                     except Exception as e:
-                        code_pipeline.put_job_failure_result(
-                            jobId=job_id,
-                            failureDetails={
-                                "type": "JobFailed",
-                                "message": str(e),
-                            },
-                        )
+                      code_pipeline.put_job_failure_result(
+                        jobId=job_id,
+                        failureDetails={
+                          "type": "JobFailed",
+                          "message": str(e),
+                        },
+                      )
                     else:
-                        code_pipeline.put_job_success_result(
-                            jobId=job_id,
-                        )
+                      code_pipeline.put_job_success_result(
+                        jobId=job_id,
+                      )
           MemorySize: 128
           Role: !GetAtt IAMRoleForLambdaPurgeS3.Arn
-          Runtime: python3.7
+          Runtime: python3.10
           Timeout: 60    
 
   IAMRoleForLambdaPurgeS3:
