@@ -346,7 +346,7 @@ Resources:
     Properties: 
       FunctionName: "UptimeLambdaFunction"
       Handler: "index.handler"
-      Runtime: nodejs16.x
+      Runtime: nodejs20.x
       Timeout: 300
       Role:
         Fn::GetAtt:
