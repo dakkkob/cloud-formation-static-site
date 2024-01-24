@@ -336,8 +336,9 @@ Resources:
                   CachedMethods: 
                     - "HEAD"
                     - "GET"
-                  Compress: true
+                  Compress: false
                   CachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6"
+                  ResponseHeadersPolicyId: "67f7725c-6f97-4210-82d7-5512b31e9d03"
                   SmoothStreaming: false
                   TargetOriginId: !Sub "${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
                   ViewerProtocolPolicy: "redirect-to-https"
