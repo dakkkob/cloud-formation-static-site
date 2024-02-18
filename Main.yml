@@ -35,7 +35,7 @@ Parameters:
     Description: "Full Repository Name (GitHub Account/repository name)"
   RepositoryBranchName:
     Type: String
-    Default: "master"  
+    Default: "main"  
   GitHubConnection:
     Type: String
     Description: "ARN of the Github Connection - you can define/get it in CodeCommit > Settings > Connections"
