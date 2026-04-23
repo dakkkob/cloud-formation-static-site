@@ -1,10 +1,10 @@
 Description: |
-  Tempalte to host static site
+  Template to host static site
     - connects to an existing GitHub repository
-    - pipeline deploys the repository content into a S3 bucket 
+    - pipeline deploys the repository content into a S3 bucket
     - cloudfront then creates a distribution from the S3 content
     Prerequisites:
-      - Cerfiricate in certificate manager (eu-east-1 region) if required
+      - Certificate in certificate manager (us-east-1 region) if required
       - GitHub connection in CodeCommit > Settings > Connections
 
 Parameters:
@@ -12,20 +12,20 @@ Parameters:
     Type: String
   PageIndex:
     Type: String
-    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-4}"
+    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2,4}"
     Description: "For example index.html or index.php"
     Default: "index.html"
   DomainName1:
     Type: String
-    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-3}"
+    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2,3}"
     Description: "Domain name/CNAME which will point to cloudfront distribution. www will be added automatically. Providing certificate ID is then mandatory!"    
   DomainName2:
     Type: String
-    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-3}"
+    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2,3}"
     Description: "Domain name/CNAME which will point to cloudfront distribution. www will be added automatically. Providing certificate ID is then mandatory!"    
   DomainName3:
     Type: String
-    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2-3}"
+    ConstraintDescription: "[A-Za-z0-9]+.[A-Za-z]{2,3}"
     Description: "Domain name/CNAME which will point to cloudfront distribution. www will be added automatically. Providing certificate ID is then mandatory!"    
   CertificateID:
     Type: String
@@ -65,10 +65,27 @@ Conditions:
           
 Resources: 
   S3BucketHosting:
-    Type: "AWS::S3::Bucket"    
+    Type: "AWS::S3::Bucket"
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
   S3BucketCodeCommit:
     Type: "AWS::S3::Bucket"
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireArtifactsAfter30Days
+            Status: Enabled
+            ExpirationInDays: 30
 
   S3BucketHostingPolicyForCloudFront:
       Type: "AWS::S3::BucketPolicy"
@@ -126,37 +143,10 @@ Resources:
                           "Condition": {
                               "StringEqualsIfExists": {
                                   "iam:PassedToService": [
-                                      "cloudformation.amazonaws.com",
-                                      "elasticbeanstalk.amazonaws.com",
-                                      "ec2.amazonaws.com",
-                                      "ecs-tasks.amazonaws.com"
+                                      "cloudformation.amazonaws.com"
                                   ]
                               }
                           }
-                      },
-                      {
-                          "Action": [
-                              "codecommit:CancelUploadArchive",
-                              "codecommit:GetBranch",
-                              "codecommit:GetCommit",
-                              "codecommit:GetRepository",
-                              "codecommit:GetUploadArchiveStatus",
-                              "codecommit:UploadArchive"
-                          ],
-                          "Resource": "*",
-                          "Effect": "Allow"
-                      },
-                      {
-                          "Action": [
-                              "codedeploy:CreateDeployment",
-                              "codedeploy:GetApplication",
-                              "codedeploy:GetApplicationRevision",
-                              "codedeploy:GetDeployment",
-                              "codedeploy:GetDeploymentConfig",
-                              "codedeploy:RegisterApplicationRevision"
-                          ],
-                          "Resource": "*",
-                          "Effect": "Allow"
                       },
                       {
                           "Action": [
@@ -167,17 +157,14 @@ Resources:
                       },
                       {
                           "Action": [
-                              "elasticbeanstalk:*",
-                              "ec2:*",
-                              "elasticloadbalancing:*",
-                              "autoscaling:*",
-                              "cloudwatch:*",
-                              "s3:*",
-                              "sns:*",
-                              "cloudformation:*",
-                              "rds:*",
-                              "sqs:*",
-                              "ecs:*"
+                              "s3:GetObject",
+                              "s3:GetObjectVersion",
+                              "s3:GetBucketVersioning",
+                              "s3:GetBucketAcl",
+                              "s3:GetBucketLocation",
+                              "s3:PutObject",
+                              "s3:ListBucket",
+                              "s3:DeleteObject"
                           ],
                           "Resource": "*",
                           "Effect": "Allow"
@@ -189,101 +176,6 @@ Resources:
                           ],
                           "Resource": "*",
                           "Effect": "Allow"
-                      },
-                      {
-                          "Action": [
-                              "opsworks:CreateDeployment",
-                              "opsworks:DescribeApps",
-                              "opsworks:DescribeCommands",
-                              "opsworks:DescribeDeployments",
-                              "opsworks:DescribeInstances",
-                              "opsworks:DescribeStacks",
-                              "opsworks:UpdateApp",
-                              "opsworks:UpdateStack"
-                          ],
-                          "Resource": "*",
-                          "Effect": "Allow"
-                      },
-                      {
-                          "Action": [
-                              "cloudformation:CreateStack",
-                              "cloudformation:DeleteStack",
-                              "cloudformation:DescribeStacks",
-                              "cloudformation:UpdateStack",
-                              "cloudformation:CreateChangeSet",
-                              "cloudformation:DeleteChangeSet",
-                              "cloudformation:DescribeChangeSet",
-                              "cloudformation:ExecuteChangeSet",
-                              "cloudformation:SetStackPolicy",
-                              "cloudformation:ValidateTemplate"
-                          ],
-                          "Resource": "*",
-                          "Effect": "Allow"
-                      },
-                      {
-                          "Action": [
-                              "codebuild:BatchGetBuilds",
-                              "codebuild:StartBuild",
-                              "codebuild:BatchGetBuildBatches",
-                              "codebuild:StartBuildBatch"
-                          ],
-                          "Resource": "*",
-                          "Effect": "Allow"
-                      },
-                      {
-                          "Effect": "Allow",
-                          "Action": [
-                              "devicefarm:ListProjects",
-                              "devicefarm:ListDevicePools",
-                              "devicefarm:GetRun",
-                              "devicefarm:GetUpload",
-                              "devicefarm:CreateUpload",
-                              "devicefarm:ScheduleRun"
-                          ],
-                          "Resource": "*"
-                      },
-                      {
-                          "Effect": "Allow",
-                          "Action": [
-                              "servicecatalog:ListProvisioningArtifacts",
-                              "servicecatalog:CreateProvisioningArtifact",
-                              "servicecatalog:DescribeProvisioningArtifact",
-                              "servicecatalog:DeleteProvisioningArtifact",
-                              "servicecatalog:UpdateProduct"
-                          ],
-                          "Resource": "*"
-                      },
-                      {
-                          "Effect": "Allow",
-                          "Action": [
-                              "cloudformation:ValidateTemplate"
-                          ],
-                          "Resource": "*"
-                      },
-                      {
-                          "Effect": "Allow",
-                          "Action": [
-                              "ecr:DescribeImages"
-                          ],
-                          "Resource": "*"
-                      },
-                      {
-                          "Effect": "Allow",
-                          "Action": [
-                              "states:DescribeExecution",
-                              "states:DescribeStateMachine",
-                              "states:StartExecution"
-                          ],
-                          "Resource": "*"
-                      },
-                      {
-                          "Effect": "Allow",
-                          "Action": [
-                              "appconfig:StartDeployment",
-                              "appconfig:StopDeployment",
-                              "appconfig:GetDeployment"
-                          ],
-                          "Resource": "*"
                       }
                   ],
                   "Version": "2012-10-17"
@@ -336,7 +228,7 @@ Resources:
                   CachedMethods: 
                     - "HEAD"
                     - "GET"
-                  Compress: false
+                  Compress: true
                   CachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6"
                   ResponseHeadersPolicyId: "67f7725c-6f97-4210-82d7-5512b31e9d03"
                   SmoothStreaming: false

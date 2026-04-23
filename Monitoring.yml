@@ -58,14 +58,14 @@ Resources:
     Condition: UrlToMonitor1NotEmpty
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor1, "is-down" ] ]
-      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmDescription: "Alarm if uptime check reports failure for this URL"
       AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
-      Namespace: "AWS/Lambda"
-      MetricName: "Errors"
+      Namespace: "UptimeMonitor"
+      MetricName: "CheckFailed"
       Dimensions:
-      - Name: "FunctionName"
-        Value: "UptimeLambdaFunction"
-      Statistic: "Average"
+      - Name: "WebsiteUrl"
+        Value: !Ref UrlToMonitor1
+      Statistic: "Maximum"
       ComparisonOperator: "GreaterThanThreshold"
       Threshold: 0
       EvaluationPeriods: 1
@@ -77,33 +77,33 @@ Resources:
     Condition: UrlToMonitor2NotEmpty
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor2, "is-down" ] ]
-      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmDescription: "Alarm if uptime check reports failure for this URL"
       AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
-      Namespace: "AWS/Lambda"
-      MetricName: "Errors"
+      Namespace: "UptimeMonitor"
+      MetricName: "CheckFailed"
       Dimensions:
-      - Name: "FunctionName"
-        Value: "UptimeLambdaFunction"
-      Statistic: "Average"
+      - Name: "WebsiteUrl"
+        Value: !Ref UrlToMonitor2
+      Statistic: "Maximum"
       ComparisonOperator: "GreaterThanThreshold"
       Threshold: 0
       EvaluationPeriods: 1
       Period: 300
       TreatMissingData: "missing"
-  
+
   uptimeAlarm3:
     Type: AWS::CloudWatch::Alarm
     Condition: UrlToMonitor3NotEmpty
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor3, "is-down" ] ]
-      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmDescription: "Alarm if uptime check reports failure for this URL"
       AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
-      Namespace: "AWS/Lambda"
-      MetricName: "Errors"
+      Namespace: "UptimeMonitor"
+      MetricName: "CheckFailed"
       Dimensions:
-      - Name: "FunctionName"
-        Value: "UptimeLambdaFunction"
-      Statistic: "Average"
+      - Name: "WebsiteUrl"
+        Value: !Ref UrlToMonitor3
+      Statistic: "Maximum"
       ComparisonOperator: "GreaterThanThreshold"
       Threshold: 0
       EvaluationPeriods: 1
@@ -115,14 +115,14 @@ Resources:
     Condition: UrlToMonitor4NotEmpty
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor4, "is-down" ] ]
-      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmDescription: "Alarm if uptime check reports failure for this URL"
       AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
-      Namespace: "AWS/Lambda"
-      MetricName: "Errors"
+      Namespace: "UptimeMonitor"
+      MetricName: "CheckFailed"
       Dimensions:
-      - Name: "FunctionName"
-        Value: "UptimeLambdaFunction"
-      Statistic: "Average"
+      - Name: "WebsiteUrl"
+        Value: !Ref UrlToMonitor4
+      Statistic: "Maximum"
       ComparisonOperator: "GreaterThanThreshold"
       Threshold: 0
       EvaluationPeriods: 1
@@ -134,19 +134,19 @@ Resources:
     Condition: UrlToMonitor5NotEmpty
     Properties:
       AlarmName: !Join [ "-", [ !Ref UrlToMonitor5, "is-down" ] ]
-      AlarmDescription: "Alarm if lambda errors out too many times"
+      AlarmDescription: "Alarm if uptime check reports failure for this URL"
       AlarmActions: [ !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic${ProjectName}" ]
-      Namespace: "AWS/Lambda"
-      MetricName: "Errors"
+      Namespace: "UptimeMonitor"
+      MetricName: "CheckFailed"
       Dimensions:
-      - Name: "FunctionName"
-        Value: "UptimeLambdaFunction"
-      Statistic: "Average"
+      - Name: "WebsiteUrl"
+        Value: !Ref UrlToMonitor5
+      Statistic: "Maximum"
       ComparisonOperator: "GreaterThanThreshold"
       Threshold: 0
       EvaluationPeriods: 1
       Period: 300
-      TreatMissingData: "missing"            
+      TreatMissingData: "missing"
 
   SNSTopic:
     Type: AWS::SNS::Topic

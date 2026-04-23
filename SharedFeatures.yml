@@ -1,5 +1,5 @@
 Description: |
-  Tempalte to deploy shared features for static sites stacks (StaticSite.yml)
+  Template to deploy shared features for static sites stacks (StaticSite.yml)
     - Lambda for CloudFront distribution invalidation
     - Lambda for S3 bucket cleanup
 
@@ -64,7 +64,7 @@ Resources:
                       )
           MemorySize: 128
           Role: !GetAtt IAMRoleForLambdaCF.Arn
-          Runtime: "python3.10"
+          Runtime: "python3.13"
           Timeout: 3
           TracingConfig: 
               Mode: "PassThrough"
@@ -164,7 +164,7 @@ Resources:
               responseData['Data'] = {}
               cfnresponse.send(event, context, responseStatus, responseData, "CustomResourcePhysicalID")
       Handler: "index.lambda_handler"
-      Runtime: python3.10
+      Runtime: python3.13
       MemorySize: 128
       Timeout: 60
       Role: !GetAtt IAMRoleForLambdaPurgeS3.Arn    
@@ -225,7 +225,7 @@ Resources:
                       )
           MemorySize: 128
           Role: !GetAtt IAMRoleForLambdaPurgeS3.Arn
-          Runtime: python3.10
+          Runtime: python3.13
           Timeout: 60    
 
   IAMRoleForLambdaPurgeS3:
@@ -271,10 +271,12 @@ Resources:
                       {
                           "Effect": "Allow",
                           "Resource": [
-                              "arn:aws:s3:::*"                              
+                              "arn:aws:s3:::*",
+                              "arn:aws:s3:::*/*"
                           ],
                           "Action": [
-                              "s3:*"
+                              "s3:ListBucket",
+                              "s3:DeleteObject"
                           ]
                       },
                       {
@@ -356,6 +358,9 @@ Resources:
         ZipFile: |
           'use strict';
 
+          const { CloudWatchClient, PutMetricDataCommand } = require('@aws-sdk/client-cloudwatch');
+          const cw = new CloudWatchClient({});
+
           exports.handler = async function(event) {
             console.log(event);
 
@@ -373,25 +378,47 @@ Resources:
               method: 'GET'
             };
 
-            return new Promise((resolve, reject) => {
-              const req = mod.default.request(options, function(res) {
-                res.setEncoding('utf8');
-                res.on('data', function(chunk) {
-                  console.log('[INFO] - Read body chunk');
+            let checkFailed = 0;
+            try {
+              await new Promise((resolve, reject) => {
+                const req = mod.default.request(options, function(res) {
+                  res.setEncoding('utf8');
+                  res.on('data', function(chunk) {
+                    console.log('[INFO] - Read body chunk');
+                  });
+                  res.on('end', function() {
+                    console.log('[INFO] - Status: ' + res.statusCode);
+                    if (res.statusCode < 200 || res.statusCode >= 400) {
+                      reject(new Error('HTTP ' + res.statusCode));
+                    } else {
+                      resolve();
+                    }
+                  });
                 });
-                res.on('end', function() {
-                  console.log('[INFO] - Response end');
-                  resolve();
+
+                req.on('error', function(e) {
+                  console.log('[ERROR] - ' + e.message);
+                  reject(e);
                 });
-              });
 
-              req.on('error', function(e) {
-                console.log('[ERROR] - ' + e.message);
-                reject(e);
+                req.end();
               });
+            } catch (e) {
+              console.log('[ERROR] - Check failed: ' + e.message);
+              checkFailed = 1;
+            }
 
-              req.end();
-            });
+            await cw.send(new PutMetricDataCommand({
+              Namespace: 'UptimeMonitor',
+              MetricData: [{
+                MetricName: 'CheckFailed',
+                Dimensions: [{ Name: 'WebsiteUrl', Value: target }],
+                Value: checkFailed,
+                Unit: 'Count'
+              }]
+            }));
+
+            if (checkFailed === 1) throw new Error('Site is down: ' + target);
           };
 
   LogsLogGroupUptimeLambdaFunction:
