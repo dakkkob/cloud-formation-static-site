@@ -234,6 +234,9 @@ Resources:
                   SmoothStreaming: false
                   TargetOriginId: !Sub "${S3BucketHosting}.s3.${AWS::Region}.amazonaws.com"
                   ViewerProtocolPolicy: "redirect-to-https"
+                  FunctionAssociations:
+                    - EventType: viewer-request
+                      FunctionARN: !GetAtt CloudFrontFunctionWwwRedirect.FunctionMetadata.FunctionARN
               Comment: ""
               PriceClass: "PriceClass_All"
               Enabled: true
@@ -252,6 +255,38 @@ Resources:
               DefaultRootObject: "index.html"
               IPV6Enabled: true
   
+  CloudFrontFunctionWwwRedirect:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${ProjectName}-www-redirect"
+      AutoPublish: true
+      FunctionConfig:
+        Comment: "301 redirect www.<domain> -> <domain>"
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var req = event.request;
+          var host = req.headers.host ? req.headers.host.value : '';
+          if (host.indexOf('www.') !== 0) {
+            return req;
+          }
+          var qs = Object.keys(req.querystring).map(function (k) {
+            var p = req.querystring[k];
+            var vals = p.multiValue ? p.multiValue : [p];
+            return vals.map(function (v) {
+              return v.value === '' ? k : k + '=' + v.value;
+            }).join('&');
+          }).join('&');
+          return {
+            statusCode: 301,
+            statusDescription: 'Moved Permanently',
+            headers: {
+              location: { value: 'https://' + host.substring(4) + req.uri + (qs ? '?' + qs : '') },
+              'cache-control': { value: 'max-age=86400' }
+            }
+          };
+        }
+
   CloudFrontOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
